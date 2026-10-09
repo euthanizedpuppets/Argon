@@ -14,10 +14,11 @@
 - An opt-in Mixin that prunes already-cancelled entries from Minecraft's native section-task queue;
 - Stable linear compaction for random-access lists in the cancellation-pruning helper;
 - Optional-cleanup metrics for scan counts, entries inspected/pruned, and average/maximum scan duration;
+- Native section-task queue add/poll/successful-poll/clear counters and current/peak depth, guarded by `telemetry.enabled`;
 - Guarded feature flags, `/argon status`, unit tests and a Gradle Mixin metadata/target declaration check;
-- A cloud build that uploads only `argon-mc26.2-0.1.0.jar`.
+- A cloud build that uploads only `argon-mc26.2-0.1.1.jar`.
 
-Native queue cleanup is disabled by default. Its runtime compatibility and performance are not yet verified in Minecraft 26.2. The feature does not claim an FPS uplift.
+The user reports that the default-settings Minecraft 26.2 client starts, `/argon status` works, and shutdown completes cleanly. Native queue cleanup is still disabled by default and its opt-in runtime behavior and performance have not yet been verified in-game. Its runtime compatibility and performance are not yet verified in Minecraft 26.2. The feature does not claim an FPS uplift.
 
 Render intervals are elapsed times between world-render callbacks, not GPU timestamps, presentation timestamps, or a definitive FPS counter. Integrated tick-work durations are measured between server tick callbacks; they apply only to the single-player integrated server and do not measure shutdown saving. Local metrics are opt-in via `telemetry.enabled=true`; no remote reporting exists.
 
