@@ -10,9 +10,9 @@ import java.util.PriorityQueue;
  * Bounded, thread-safe task queue suitable for scheduling pure data work.
  *
  * Larger priority values run first. Re-offering an existing key only replaces
- * its queued task when the new priority is higher. This class does not create
- * threads or execute tasks; Minecraft thread ownership remains the caller's
- * responsibility.
+ * its queued task when the new priority is higher. Stale heap entries are
+ * periodically compacted so repeated upgrades/cancellations cannot grow memory
+ * without bound. This class does not create threads or execute tasks.
  */
 public final class BoundedPriorityTaskQueue<K, V> {
     public enum OfferResult {
@@ -67,6 +67,7 @@ public final class BoundedPriorityTaskQueue<K, V> {
             Entry<K, V> upgraded = new Entry<>(key, value, priority, nextSequence++);
             current.put(key, upgraded);
             queue.add(upgraded);
+            compactIfNeeded();
             return OfferResult.PRIORITY_RAISED;
         }
 
@@ -77,6 +78,7 @@ public final class BoundedPriorityTaskQueue<K, V> {
         Entry<K, V> entry = new Entry<>(key, value, priority, nextSequence++);
         current.put(key, entry);
         queue.add(entry);
+        compactIfNeeded();
         return OfferResult.ADDED;
     }
 
@@ -87,13 +89,16 @@ public final class BoundedPriorityTaskQueue<K, V> {
                 continue; // Stale entry left behind by a priority upgrade or cancel.
             }
             current.remove(entry.key);
+            compactIfNeeded();
             return Optional.of(new Task<>(entry.key, entry.value, entry.priority));
         }
         return Optional.empty();
     }
 
     public synchronized boolean cancel(K key) {
-        return current.remove(key) != null;
+        boolean removed = current.remove(key) != null;
+        compactIfNeeded();
+        return removed;
     }
 
     public synchronized boolean contains(K key) {
@@ -115,5 +120,19 @@ public final class BoundedPriorityTaskQueue<K, V> {
     public synchronized void clear() {
         current.clear();
         queue.clear();
+    }
+
+    // Package-private diagnostic used to verify the queue's memory bound.
+    synchronized int retainedEntryCount() {
+        return queue.size();
+    }
+
+    private void compactIfNeeded() {
+        int threshold = Math.max(16, current.size() * 2);
+        if (queue.size() <= threshold) {
+            return;
+        }
+        queue.clear();
+        queue.addAll(current.values());
     }
 }
