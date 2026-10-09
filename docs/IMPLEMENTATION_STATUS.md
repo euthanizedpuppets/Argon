@@ -2,20 +2,21 @@
 
 ## Bootstrap branch
 
-`bootstrap/argon-0.1` contains the initial Fabric project metadata, cloud build workflow, and architecture documents. It is the comparison baseline for the next development branch.
+bootstrap/argon-0.1 contains the initial Fabric project metadata, cloud build workflow, and architecture documents. It is the comparison baseline for the next development branch.
 
 ## Core development branch
 
-`dev/argon-core` builds on the bootstrap branch and adds:
+dev/argon-core builds on the bootstrap branch and adds:
 
 - validated configuration parsing and persistence with safe fallback for malformed properties;
 - bounded rolling frame-time samples and percentile calculations;
+- integration with Minecraft 26.3's Fabric LevelRenderEvents.END_MAIN callback to collect world-pass interval samples;
 - a bounded, deduplicating priority queue for chunk work;
 - guarded feature flags that distinguish requested features from implemented/available features;
-- the client-side `/argon status` diagnostic command;
-- unit tests for the pure-Java components.
+- the client-side /argon status diagnostic command;
+- unit tests for pure-Java components, including render interval sampling.
 
-The queue is not connected to Minecraft chunk rebuilds, and the frame tracker is not yet hooked into a verified frame lifecycle. The diagnostic command reports those capabilities as unavailable rather than implying that they are active.
+The render samples are elapsed intervals between main level-render callbacks. They are not GPU timestamps, presentation timestamps, or a definitive FPS counter. They are collected only while world rendering is active. The queue is not connected to Minecraft chunk rebuilds, and no chunk scheduling optimization is marked available.
 
 ## Stability gates
 
@@ -29,4 +30,4 @@ The queue is not connected to Minecraft chunk rebuilds, and the frame tracker is
 
 ## Next integration gate
 
-With diagnostics and safe config fallback in place, the next step is a version-specific integration investigation for Minecraft chunk rebuild scheduling. First map the 26.3 client chunk rebuild lifecycle and thread ownership, then add a narrow adapter with tests before replacing any vanilla scheduling behavior. Do not enable scheduling changes until the adapter is verified against the target runtime.
+Investigate Minecraft 26.3's native SectionTaskDynamicQueue, which already handles camera-distance ordering, cancellation cleanup during poll, and a quota between initial compile and recompile tasks. Any future Argon patch must preserve section-task lifecycle and worker/buffer ownership. Prefer a narrow, testable cleanup or prioritization change over replacing the native scheduler wholesale.

@@ -11,12 +11,13 @@ Compilation and tests run in GitHub Actions so contributors do not need to compi
 ## Current scope
 
 - Fabric client bootstrap and safe configuration loading
-- `/argon status` client-side diagnostic command
+- /argon status client-side diagnostic command
+- World-pass interval sampling from Minecraft 26.3's Fabric LevelRenderEvents.END_MAIN event
 - Conservative feature flags that do not mark placeholder optimizations active
-- Bounded chunk-work queue and rolling frame-time statistics (primitives only; not yet wired into Minecraft)
+- Bounded chunk-work queue and rolling frame-time statistics (the queue is not yet wired into Minecraft's chunk scheduler)
 - GitHub Actions compilation, tests, and artifact upload
 
-Chunk scheduling changes, memory pools, adaptive budgets, and a replacement renderer are not implemented yet. They will be added only after a baseline is measurable.
+The world-pass interval is a diagnostic estimate, not a GPU timestamp or guaranteed FPS measurement. Chunk scheduling changes, memory pools, adaptive budgets, and a replacement renderer are not implemented yet. They will be added only after a baseline is measurable.
 
 ## OpenGL and Vulkan
 

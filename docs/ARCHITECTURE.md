@@ -16,6 +16,18 @@ Argon is a Java-first Fabric client optimization suite for Minecraft Java Editio
 
 The initial repository uses one Gradle project and package boundaries. Split into subprojects only when that materially improves isolation or build maintenance.
 
+## Frame interval monitoring
+
+The client registers Fabric's LevelRenderEvents.END_MAIN event at the end of Minecraft 26.3's main level-render pass. FrameTimeMonitor measures elapsed nanoseconds between successive callbacks and passes valid intervals to the bounded rolling FrameTimeTracker.
+
+This is a low-cost diagnostic estimate of world-render-pass interval, not a GPU timestamp, presentation timestamp, or definitive FPS counter. It samples only while this render event runs. Duplicate/backward timestamps and gaps longer than five seconds are ignored so pauses do not pollute the rolling window. The first callback only establishes a baseline.
+
+## Chunk scheduling investigation
+
+Minecraft 26.3 already uses SectionTaskDynamicQueue in SectionRenderDispatcher. Its existing selector removes cancelled tasks while polling, prioritizes tasks by camera distance, and reserves a quota for recompiles versus initial compilation. Any Argon integration must preserve those vanilla correctness and fairness properties unless repeatable measurements justify changing them.
+
+The Argon bounded queue remains a pure-Java scheduling primitive and is not connected to the native chunk task queue. Do not enqueue vanilla SectionTask objects into an independent worker pool: they carry world/section and buffer lifecycle requirements that must remain under Minecraft's dispatch ownership. The next chunk step is a narrow, version-specific adapter or a measured queue-cleanup patch, tested against 26.3 before it is marked available.
+
 ## OpenGL and Vulkan
 
 Argon must work with Minecraft's supported OpenGL and Vulkan runtime paths when the target release supports them. Shared code should use Minecraft rendering abstractions rather than direct OpenGL calls.
@@ -39,7 +51,7 @@ A flag is not proof that a feature is implemented. Diagnostics must distinguish 
 
 ## Compatibility
 
-Target Minecraft 26.3 and Fabric Loader 0.19.5 for the bootstrap. Pin exact build tooling in the repository. Add Fabric API only after a compatible release is verified and a concrete API is required.
+Target Minecraft 26.3 and Fabric Loader 0.19.5 for the bootstrap. Pin exact build tooling in the repository. Fabric API is pinned to the Minecraft 26.3 line because the frame-interval hook uses the version-specific level-rendering API.
 
 ## Performance
 
