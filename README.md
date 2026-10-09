@@ -19,12 +19,16 @@ Use a separate Fabric instance for testing. Back up worlds before testing any op
 
 - Safe config loading and the `/argon status` diagnostic command
 - World-render-pass interval samples through Fabric `LevelRenderEvents.END_MAIN`, disabled by `telemetry.enabled=false`
-- Min/average/max/P50/P95 interval summaries
+- Integrated-server tick-work min/average/max/P50/P95 samples in single-player worlds
+- Min/average/max/P50/P95 render interval summaries
 - Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue
+- Stable linear compaction when pruning cancelled tasks from the native random-access queue
 - Unit tests and a Gradle Mixin metadata/target declaration check
+
+Integrated tick-work times can help determine whether single-player server processing itself is taking too long. They don't measure remote multiplayer server performance or save time during shutdown.
 
 Queue cleanup is disabled by default with `chunks.cancelled-task-cleanup.enabled=false`. It does not replace vanilla chunk scheduling or its distance ordering. Its runtime behavior and performance need to be tested in-game; no FPS improvement is claimed.
 
-These samples are world-render-pass intervals, not GPU timestamps or a guaranteed FPS counter. A green CI build proves compilation and unit tests, not successful in-game startup or performance gains.
+World-render samples are intervals between world-render callbacks, not GPU timestamps or a guaranteed FPS counter. A green CI build proves compilation and unit tests, not successful in-game startup or performance gains.
 
 See [docs/IN_GAME_TEST_PLAN.md](docs/IN_GAME_TEST_PLAN.md).

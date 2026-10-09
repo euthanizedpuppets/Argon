@@ -6,8 +6,10 @@ import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
 import dev.argon.performance.FrameTimeMonitor;
 import dev.argon.performance.FrameTimeTracker;
+import dev.argon.performance.ServerTickMonitor;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
@@ -32,6 +34,9 @@ public final class ArgonClient implements ClientModInitializer {
     private static FrameTimeTracker frameTimes = new FrameTimeTracker(
             ArgonConfig.defaults().frameSampleWindow());
     private static FrameTimeMonitor frameTimeMonitor = new FrameTimeMonitor(frameTimes);
+    private static FrameTimeTracker integratedServerTickTimes = new FrameTimeTracker(
+            ArgonConfig.defaults().frameSampleWindow());
+    private static ServerTickMonitor serverTickMonitor = new ServerTickMonitor(integratedServerTickTimes);
     private static BoundedPriorityTaskQueue<String, Runnable> chunkQueue =
             new BoundedPriorityTaskQueue<>(ArgonConfig.defaults().maxQueuedChunkTasks());
 
@@ -41,6 +46,11 @@ public final class ArgonClient implements ClientModInitializer {
 
     public static FrameTimeTracker frameTimes() {
         return frameTimes;
+    }
+
+    /** Tick-work duration samples are produced by the single-player integrated server only. */
+    public static FrameTimeTracker integratedServerTickTimes() {
+        return integratedServerTickTimes;
     }
 
     /**
@@ -94,9 +104,18 @@ public final class ArgonClient implements ClientModInitializer {
         frameTimes = new FrameTimeTracker(config.frameSampleWindow());
         frameTimeMonitor = new FrameTimeMonitor(frameTimes);
         frameTimeMonitor.reset();
+
+        integratedServerTickTimes = new FrameTimeTracker(config.frameSampleWindow());
+        serverTickMonitor = new ServerTickMonitor(integratedServerTickTimes);
         if (config.telemetryEnabled()) {
+            FrameTimeMonitor activeFrameMonitor = frameTimeMonitor;
+            ServerTickMonitor activeServerTickMonitor = serverTickMonitor;
             LevelRenderEvents.END_MAIN.register(
-                    context -> frameTimeMonitor.recordFrameBoundary(System.nanoTime()));
+                    context -> activeFrameMonitor.recordFrameBoundary(System.nanoTime()));
+            ServerTickEvents.START_SERVER_TICK.register(
+                    server -> activeServerTickMonitor.beginTick(System.nanoTime()));
+            ServerTickEvents.END_SERVER_TICK.register(
+                    server -> activeServerTickMonitor.finishTick(System.nanoTime()));
         }
 
         chunkQueue = new BoundedPriorityTaskQueue<>(config.maxQueuedChunkTasks());
@@ -112,7 +131,7 @@ public final class ArgonClient implements ClientModInitializer {
                 + FeatureFlags.status(ArgonFeature.CHUNK_PRIORITY_SCHEDULING)
                 + "; local metrics enabled: " + config.telemetryEnabled()
                 + (config.telemetryEnabled()
-                    ? "; world-pass interval monitoring enabled."
+                    ? "; world-pass and integrated-server tick diagnostics enabled."
                     : "; local metrics collection disabled by configuration."));
     }
 }

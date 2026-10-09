@@ -24,8 +24,10 @@ public final class ArgonCommands {
     }
 
     static String statusReport() {
-        FrameTimeTracker tracker = ArgonClient.frameTimes();
-        FrameTimeTracker.Summary summary = tracker.summary();
+        FrameTimeTracker renderTracker = ArgonClient.frameTimes();
+        FrameTimeTracker.Summary render = renderTracker.summary();
+        FrameTimeTracker serverTracker = ArgonClient.integratedServerTickTimes();
+        FrameTimeTracker.Summary server = serverTracker.summary();
 
         StringBuilder report = new StringBuilder()
                 .append("Argon diagnostics")
@@ -50,25 +52,47 @@ public final class ArgonCommands {
                 .append('/')
                 .append(ArgonClient.chunkQueue().capacity())
                 .append("\nWorld-pass interval samples: ")
-                .append(summary.sampleCount())
+                .append(render.sampleCount())
                 .append('/')
-                .append(tracker.capacity());
+                .append(renderTracker.capacity());
 
         if (!ArgonClient.config().telemetryEnabled()) {
             report.append(" (disabled by config)");
-        } else if (summary.sampleCount() == 0) {
+        } else if (render.sampleCount() == 0) {
             report.append(" (waiting for world rendering)");
         } else {
             report.append("\nWorld-pass interval min/avg/max: ")
-                    .append(formatMillis(summary.minimumNanos()))
+                    .append(formatMillis(render.minimumNanos()))
                     .append(" / ")
-                    .append(formatMillis(summary.averageNanos()))
+                    .append(formatMillis(render.averageNanos()))
                     .append(" / ")
-                    .append(formatMillis(summary.maximumNanos()))
+                    .append(formatMillis(render.maximumNanos()))
                     .append("\nWorld-pass interval P50/P95: ")
-                    .append(formatMillis(summary.p50Nanos()))
+                    .append(formatMillis(render.p50Nanos()))
                     .append(" / ")
-                    .append(formatMillis(summary.p95Nanos()));
+                    .append(formatMillis(render.p95Nanos()));
+        }
+
+        report.append("\nIntegrated server tick-work samples: ")
+                .append(server.sampleCount())
+                .append('/')
+                .append(serverTracker.capacity());
+
+        if (!ArgonClient.config().telemetryEnabled()) {
+            report.append(" (disabled by config)");
+        } else if (server.sampleCount() == 0) {
+            report.append(" (available in single-player only)");
+        } else {
+            report.append("\nIntegrated tick-work min/avg/max: ")
+                    .append(formatMillis(server.minimumNanos()))
+                    .append(" / ")
+                    .append(formatMillis(server.averageNanos()))
+                    .append(" / ")
+                    .append(formatMillis(server.maximumNanos()))
+                    .append("\nIntegrated tick-work P50/P95: ")
+                    .append(formatMillis(server.p50Nanos()))
+                    .append(" / ")
+                    .append(formatMillis(server.p95Nanos()));
         }
 
         for (ArgonFeature feature : ArgonFeature.values()) {
@@ -79,6 +103,7 @@ public final class ArgonCommands {
         }
 
         report.append("\nWorld-pass intervals are not GPU timings or a guaranteed FPS measurement.");
+        report.append("\nIntegrated tick-work measures tick callbacks, not shutdown saving or scheduler delay.");
         report.append("\nNative queue cleanup removes cancelled entries only; vanilla task ordering is retained.");
         return report.toString();
     }

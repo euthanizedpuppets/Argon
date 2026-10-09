@@ -29,7 +29,7 @@ Launch the game, reach the title screen, and enter a disposable world. Run:
 /argon status
 ```
 
-Confirm the world-pass sample count grows while the world is rendering and `CANCELLED_CHUNK_TASK_CLEANUP` reports `DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
+Confirm the world-pass sample count grows while the world is rendering. In single-player, confirm the integrated server tick-work sample count also grows. The cleanup feature should report `CANCELLED_CHUNK_TASK_CLEANUP: DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
 
 ## Test B — opt-in queue cleanup
 
@@ -45,8 +45,8 @@ If anything unusual occurs, close the game and set the option back to `false` be
 
 ## What to report back
 
-Share whether the title screen and world loaded, whether `/argon status` worked, whether the selected graphics backend starts, and any crash or Mixin errors from `logs/latest.log`. For the cleanup test, describe repeatable changes in chunk stutter and any new log warnings.
+Share whether the title screen and world loaded, whether `/argon status` worked, whether the selected graphics backend starts, and any crash or Mixin errors from `logs/latest.log`. The integrated tick-work min/average/max and P50/P95 may help show whether single-player tick processing is itself slow. Those values do not measure remote multiplayer servers, wall-clock tick scheduling delay, or world-save time during shutdown.
 
-The P50/P95 values measure intervals between world-render callbacks. They are not GPU timings or a guaranteed FPS measurement. Compare the same view and movement route before interpreting differences.
+For the cleanup test, describe repeatable changes in chunk stutter and any new log warnings. The P50/P95 render values measure intervals between world-render callbacks; they are not GPU timings or a guaranteed FPS measurement. Compare the same view and movement route before interpreting differences.
 
-Do not use a valuable world or server for the first test. If saving or exiting hangs, wait briefly, then capture `logs/latest.log` and any crash report before force-closing so we can diagnose it.
+Do not use a valuable world or server for the first test. If saving or exiting hangs, preserve `logs/latest.log` and any crash report before force-closing so we can diagnose it.
