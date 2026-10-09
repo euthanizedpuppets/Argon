@@ -23,6 +23,8 @@ public final class ArgonConfig {
     private final int maxQueuedChunkTasks;
     private final int frameSampleWindow;
     private final boolean cancelledChunkTaskCleanupEnabled;
+    private final boolean guiIntersectionProfilingEnabled;
+    private final boolean chunkGenerationProfilingEnabled;
 
     /**
      * Compatibility constructor: experimental chunk cleanup remains disabled
@@ -35,7 +37,7 @@ public final class ArgonConfig {
             int maxQueuedChunkTasks,
             int frameSampleWindow) {
         this(telemetryEnabled, chunkSchedulerEnabled, experimentalRendererEnabled,
-                maxQueuedChunkTasks, frameSampleWindow, false);
+                maxQueuedChunkTasks, frameSampleWindow, false, false, false);
     }
 
     public ArgonConfig(
@@ -45,6 +47,20 @@ public final class ArgonConfig {
             int maxQueuedChunkTasks,
             int frameSampleWindow,
             boolean cancelledChunkTaskCleanupEnabled) {
+        this(telemetryEnabled, chunkSchedulerEnabled, experimentalRendererEnabled,
+                maxQueuedChunkTasks, frameSampleWindow, cancelledChunkTaskCleanupEnabled,
+                false, false);
+    }
+
+    public ArgonConfig(
+            boolean telemetryEnabled,
+            boolean chunkSchedulerEnabled,
+            boolean experimentalRendererEnabled,
+            int maxQueuedChunkTasks,
+            int frameSampleWindow,
+            boolean cancelledChunkTaskCleanupEnabled,
+            boolean guiIntersectionProfilingEnabled,
+            boolean chunkGenerationProfilingEnabled) {
         this.telemetryEnabled = telemetryEnabled;
         this.chunkSchedulerEnabled = chunkSchedulerEnabled;
         this.experimentalRendererEnabled = experimentalRendererEnabled;
@@ -53,10 +69,12 @@ public final class ArgonConfig {
         this.frameSampleWindow = clamp(
                 frameSampleWindow, MIN_FRAME_WINDOW, MAX_FRAME_WINDOW);
         this.cancelledChunkTaskCleanupEnabled = cancelledChunkTaskCleanupEnabled;
+        this.guiIntersectionProfilingEnabled = guiIntersectionProfilingEnabled;
+        this.chunkGenerationProfilingEnabled = chunkGenerationProfilingEnabled;
     }
 
     public static ArgonConfig defaults() {
-        return new ArgonConfig(true, false, false, 256, 240, false);
+        return new ArgonConfig(true, false, false, 256, 240, false, false, false);
     }
 
     public boolean telemetryEnabled() {
@@ -83,6 +101,14 @@ public final class ArgonConfig {
         return cancelledChunkTaskCleanupEnabled;
     }
 
+    public boolean guiIntersectionProfilingEnabled() {
+        return guiIntersectionProfilingEnabled;
+    }
+
+    public boolean chunkGenerationProfilingEnabled() {
+        return chunkGenerationProfilingEnabled;
+    }
+
     public static ArgonConfig load(Path file) throws IOException {
         ArgonConfig defaults = defaults();
         if (!Files.exists(file)) {
@@ -105,7 +131,11 @@ public final class ArgonConfig {
                 readInt(properties, "chunks.queue.capacity", defaults.maxQueuedChunkTasks),
                 readInt(properties, "performance.frame-window", defaults.frameSampleWindow),
                 readBoolean(properties, "chunks.cancelled-task-cleanup.enabled",
-                        defaults.cancelledChunkTaskCleanupEnabled));
+                        defaults.cancelledChunkTaskCleanupEnabled),
+                readBoolean(properties, "performance.gui-intersection.enabled",
+                        defaults.guiIntersectionProfilingEnabled),
+                readBoolean(properties, "chunks.generation-profiling.enabled",
+                        defaults.chunkGenerationProfilingEnabled));
     }
 
     public void save(Path file) throws IOException {
@@ -123,6 +153,10 @@ public final class ArgonConfig {
         properties.setProperty("performance.frame-window", Integer.toString(frameSampleWindow));
         properties.setProperty("chunks.cancelled-task-cleanup.enabled",
                 Boolean.toString(cancelledChunkTaskCleanupEnabled));
+        properties.setProperty("performance.gui-intersection.enabled",
+                Boolean.toString(guiIntersectionProfilingEnabled));
+        properties.setProperty("chunks.generation-profiling.enabled",
+                Boolean.toString(chunkGenerationProfilingEnabled));
 
         try (OutputStream output = Files.newOutputStream(file)) {
             properties.store(output,
