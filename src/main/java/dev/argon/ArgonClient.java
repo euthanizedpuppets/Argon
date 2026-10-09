@@ -2,6 +2,7 @@ package dev.argon;
 
 import dev.argon.chunks.BoundedPriorityTaskQueue;
 import dev.argon.chunks.ChunkCleanupMetrics;
+import dev.argon.chunks.NativeChunkQueueMetrics;
 import dev.argon.config.ArgonConfig;
 import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
@@ -29,6 +30,8 @@ public final class ArgonClient implements ClientModInitializer {
     public static final Logger LOGGER = Logger.getLogger(MOD_ID);
 
     private static final ChunkCleanupMetrics CHUNK_CLEANUP_METRICS = new ChunkCleanupMetrics();
+    private static final NativeChunkQueueMetrics NATIVE_CHUNK_QUEUE_METRICS =
+            new NativeChunkQueueMetrics();
 
     private static ArgonConfig config = ArgonConfig.defaults();
     private static FrameTimeTracker frameTimes = new FrameTimeTracker(
@@ -57,6 +60,28 @@ public final class ArgonClient implements ClientModInitializer {
         return CHUNK_CLEANUP_METRICS;
     }
 
+    public static NativeChunkQueueMetrics nativeChunkQueueMetrics() {
+        return NATIVE_CHUNK_QUEUE_METRICS;
+    }
+
+    public static void recordNativeChunkQueueAdd(int depth) {
+        if (config.telemetryEnabled()) {
+            NATIVE_CHUNK_QUEUE_METRICS.recordAdd(depth);
+        }
+    }
+
+    public static void recordNativeChunkQueuePoll(boolean taskReturned, int depth) {
+        if (config.telemetryEnabled()) {
+            NATIVE_CHUNK_QUEUE_METRICS.recordPoll(taskReturned, depth);
+        }
+    }
+
+    public static void recordNativeChunkQueueClear(int entriesCleared) {
+        if (config.telemetryEnabled()) {
+            NATIVE_CHUNK_QUEUE_METRICS.recordClear(entriesCleared);
+        }
+    }
+
     public static void recordChunkCleanupScan(int inspected, int removed, long durationNanos) {
         if (config.telemetryEnabled()) {
             CHUNK_CLEANUP_METRICS.recordScan(inspected, removed, Math.max(0L, durationNanos));
@@ -75,6 +100,7 @@ public final class ArgonClient implements ClientModInitializer {
     public void onInitializeClient() {
         FeatureFlags.initializeDefaults();
         CHUNK_CLEANUP_METRICS.reset();
+        NATIVE_CHUNK_QUEUE_METRICS.reset();
 
         Path configPath = FabricLoader.getInstance()
                 .getConfigDir()
