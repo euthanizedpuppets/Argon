@@ -31,7 +31,7 @@ final class FrameTimeMonitorTest {
         monitor.recordFrameBoundary(200L + FrameTimeMonitor.MAX_SAMPLE_INTERVAL_NANOS + 1L);
         monitor.recordFrameBoundary(300L + FrameTimeMonitor.MAX_SAMPLE_INTERVAL_NANOS + 1L);
 
-        assertArrayEquals(new long[]{110L}, tracker.snapshot());
+        assertArrayEquals(new long[]{110L, 100L}, tracker.snapshot());
     }
 
     @Test
