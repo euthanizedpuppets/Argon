@@ -199,7 +199,7 @@ public final class ArgonClient implements ClientModInitializer {
 
         ArgonCommands.register();
 
-        LOGGER.info(() -> "Argon 0.1.4 initialized. "
+        LOGGER.info(() -> "Argon 0.1.5 initialized. "
                 + "Cancelled chunk-task cleanup: "
                 + FeatureFlags.status(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP)
                 + "; experimental renderer status: "
