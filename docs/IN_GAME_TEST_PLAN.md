@@ -6,8 +6,8 @@ The user has confirmed that the default-settings 26.2 build starts, `/argon stat
 
 1. Use a separate Minecraft 26.2 Fabric instance with Java 25, Fabric Loader 0.19.5, and Fabric API 0.161.0+26.2.
 2. Back up any world you care about. Prefer a temporary test world for the first launch.
-3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.1`.
-4. Extract the ZIP and place only `argon-mc26.2-0.1.1.jar` in that instance's `mods` directory. Close Minecraft before adding it.
+3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.2`.
+4. Extract the ZIP and place only `argon-mc26.2-0.1.2.jar` in that instance's `mods` directory. Close Minecraft before adding it.
 5. Start with no other performance mods where practical, so a crash or behavior change is easier to isolate.
 
 ## Test A — default settings
@@ -29,7 +29,7 @@ Launch the game, reach the title screen, and enter a disposable world. Run:
 /argon status
 ```
 
-First verify the new native queue counters appear and change while moving around. `Native chunk queue depth current/peak` shows pending queue pressure, while additions, poll calls, successful poll returns, and clears are session totals. Confirm the world-pass sample count grows while the world is rendering. In single-player, confirm the integrated server tick-work sample count also grows. The cleanup feature should report `CANCELLED_CHUNK_TASK_CLEANUP: DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
+The new build now reports `Section-task queue wait`, `Section mesh compile`, and `Terrain upload-pass` samples. Capture `/argon status` after the world has been open and you have moved enough to trigger a steady stream of chunk rebuilds. First verify the new native queue counters appear and change while moving around. `Native chunk queue depth current/peak` shows pending queue pressure, while additions, poll calls, successful poll returns, and clears are session totals. Confirm the world-pass sample count grows while the world is rendering. In single-player, confirm the integrated server tick-work sample count also grows. The cleanup feature should report `CANCELLED_CHUNK_TASK_CLEANUP: DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
 
 ## Test B — opt-in queue cleanup
 
@@ -49,6 +49,6 @@ If anything unusual occurs, close the game and set the option back to `false` be
 
 Share whether the title screen and world loaded, whether `/argon status` worked, whether the selected graphics backend starts, and any crash or Mixin errors from `logs/latest.log`. The integrated tick-work min/average/max and P50/P95 may help show whether single-player tick processing is itself slow. Those values do not measure remote multiplayer servers, wall-clock tick scheduling delay, or world-save time during shutdown.
 
-For the cleanup test, share cleanup scan duration and any repeatable change in chunk stutter. The P50/P95 render values measure intervals between world-render callbacks; they are not GPU timings or a guaranteed FPS measurement. Compare the same view and movement route before interpreting differences.
+For diagnosing delayed terrain, share the queue-wait P50/P95, mesh-compile P50/P95/max, upload-method CPU-time P50/P95/max, and integrated tick-work P95/max. Long queue wait suggests tasks are waiting their turn; long compile duration points at mesh-generation work; long upload method time points at render-thread buffer integration. A low value in all three points us toward upstream chunk availability/generation or other missing stages. For the cleanup test, share cleanup scan duration and any repeatable change in chunk stutter. The P50/P95 render values measure intervals between world-render callbacks; they are not GPU timings or a guaranteed FPS measurement. Compare the same view and movement route before interpreting differences.
 
 Do not use a valuable world or server for the first test. If saving or exiting hangs, preserve `logs/latest.log` and any crash report before force-closing so we can diagnose it.
