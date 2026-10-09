@@ -6,7 +6,9 @@
     "SectionTaskCancellationAccessor",
     "SectionTaskDynamicQueueMixin",
     "SectionCompileTaskMixin",
-    "SectionRenderDispatcherMixin"
+    "SectionRenderDispatcherMixin",
+    "GuiRenderStateMixin",
+    "NoiseBasedChunkGeneratorMixin"
   ],
   "injectors": {
     "defaultRequire": 1
