@@ -1,10 +1,10 @@
-# Argon 0.1.4 — CPU hotspot profiling test plan
+# Argon 0.1.5 — CPU hotspot profiling test plan
 
 ## Install safely
 
 1. Use a separate Minecraft 26.2 Fabric instance with Java 25, Fabric Loader 0.19.5+, and Fabric API 0.161.0+26.2.
 2. Back up important worlds and use a disposable test world.
-3. Download only `argon-mc26.2-0.1.4.jar` from the latest successful workflow run on `support/minecraft-26.2`.
+3. Download only `argon-mc26.2-0.1.5.jar` from the latest successful workflow run on `support/minecraft-26.2`.
 4. Put the JAR in the instance's `mods` directory.
 
 ## Enable diagnostic probes
