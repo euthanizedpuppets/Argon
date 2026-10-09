@@ -1,13 +1,13 @@
 # Argon Minecraft 26.2 — queue cleanup validation
 
-The user has confirmed that the default-settings 26.2 build starts, `/argon status` works, and normal shutdown completes. This candidate adds native queue pressure counters; the optional cancelled-task cleanup path still needs isolated in-game validation. It is not a performance-release claim.
+The user has confirmed that the 26.2 build starts, `/argon status` works, and normal shutdown completes. This candidate includes chunk-pipeline timings and the bundled mod icon. The latest cleanup test inspected 405 entries over 10 scans but removed only 4; scan time averaged 5.85 ms with a 35.16 ms maximum, so start with cleanup disabled for the next baseline run. No performance gain is claimed.
 
 ## Before installing
 
 1. Use a separate Minecraft 26.2 Fabric instance with Java 25, Fabric Loader 0.19.5, and Fabric API 0.161.0+26.2.
 2. Back up any world you care about. Prefer a temporary test world for the first launch.
-3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.2`.
-4. Extract the ZIP and place only `argon-mc26.2-0.1.2.jar` in that instance's `mods` directory. Close Minecraft before adding it.
+3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.3`.
+4. Extract the ZIP and place only `argon-mc26.2-0.1.3.jar` in that instance's `mods` directory. Close Minecraft before adding it.
 5. Start with no other performance mods where practical, so a crash or behavior change is easier to isolate.
 
 ## Test A — default settings
