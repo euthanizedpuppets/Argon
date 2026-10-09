@@ -2,13 +2,11 @@ package dev.argon.mixin.chunk;
 
 import dev.argon.ArgonClient;
 import net.minecraft.client.renderer.chunk.SectionBufferBuilderPack;
-import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection.SectionTask;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection.SectionTask.SectionTaskResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
