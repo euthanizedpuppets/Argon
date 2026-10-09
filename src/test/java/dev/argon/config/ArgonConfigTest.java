@@ -59,6 +59,18 @@ final class ArgonConfigTest {
     }
 
     @Test
+    void malformedUnicodeEscapeFallsBackToDefaults() throws IOException {
+        Path file = temporaryDirectory.resolve("malformed.properties");
+        Files.writeString(file, "telemetry.enabled=\\u12G4\nchunks.scheduler.enabled=true\n");
+
+        ArgonConfig config = ArgonConfig.load(file);
+
+        assertEquals(ArgonConfig.defaults().telemetryEnabled(), config.telemetryEnabled());
+        assertEquals(ArgonConfig.defaults().chunkSchedulerEnabled(), config.chunkSchedulerEnabled());
+        assertEquals(ArgonConfig.defaults().maxQueuedChunkTasks(), config.maxQueuedChunkTasks());
+    }
+
+    @Test
     void missingFileReturnsDefaults() throws IOException {
         ArgonConfig config = ArgonConfig.load(temporaryDirectory.resolve("missing.properties"));
         assertFalse(config.experimentalRendererEnabled());
