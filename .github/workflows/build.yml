@@ -31,7 +31,7 @@ jobs:
           cache: gradle
 
       - name: Set up Gradle 9.6.0
-      	with:
+        with:
           gradle-version: "9.6.0"
 
       - name: Print toolchain versions
