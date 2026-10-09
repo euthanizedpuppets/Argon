@@ -57,7 +57,7 @@ public final class ArgonClient implements ClientModInitializer {
             if (!existed) {
                 config.save(configPath);
             }
-        } catch (IOException exception) {
+        } catch (IOException | IllegalArgumentException exception) {
             config = ArgonConfig.defaults();
             LOGGER.log(Level.WARNING,
                     "Could not load Argon configuration; using safe defaults.", exception);
@@ -70,6 +70,8 @@ public final class ArgonClient implements ClientModInitializer {
 
         frameTimes = new FrameTimeTracker(config.frameSampleWindow());
         chunkQueue = new BoundedPriorityTaskQueue<>(config.maxQueuedChunkTasks());
+
+        ArgonCommands.register();
 
         LOGGER.info(() -> "Argon 0.1 initialized. "
                 + "Experimental renderer status: "
