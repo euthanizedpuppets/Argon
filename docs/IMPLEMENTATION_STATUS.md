@@ -1,4 +1,4 @@
-# Argon Implementation Status — Minecraft 26.2
+# Argon Renderer Prototype Status — Minecraft 26.2
 
 ## Branch isolation
 
@@ -34,3 +34,12 @@ Render intervals are elapsed times between world-render callbacks, not GPU times
 6. Chunk pipeline timings are diagnostic-only and never alter vanilla scheduling.
 7. Cleanup scan-cost metrics appear only after the user opts in to cleanup and telemetry is enabled.
 8. Do not claim FPS gains until repeatable, controlled comparisons support them.
+
+
+## Experimental renderer observer branch
+
+Branch: experiment/renderer-prototype; artifact version: 0.2.0-renderer-prototype.
+
+Included: optional timings around vanilla ChunkSectionsToRender.renderGroup; opaque/translucent call counts; observed draw-group and draw-entry counters; /argon status output for average/P50/P95/max timing. The observer is gated by both telemetry and renderer.experimental.enabled.
+
+Not included: an independent terrain renderer, custom render pipeline for chunk meshes, custom chunk mesh compilation, changed culling, changed batching, or any claimed performance optimization. The vanilla render method still owns drawing. This stage exists to quantify current CPU terrain submission cost on the user's hardware. Do not label this build as a custom renderer replacement.
