@@ -10,6 +10,7 @@ import dev.argon.core.FeatureFlags;
 import dev.argon.performance.FrameTimeMonitor;
 import dev.argon.performance.FrameTimeTracker;
 import dev.argon.performance.ServerTickMonitor;
+import dev.argon.renderer.ArgonTerrainRenderObserver;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -33,6 +34,9 @@ public final class ArgonClient implements ClientModInitializer {
     private static final ChunkCleanupMetrics CHUNK_CLEANUP_METRICS = new ChunkCleanupMetrics();
     private static final NativeChunkQueueMetrics NATIVE_CHUNK_QUEUE_METRICS =
             new NativeChunkQueueMetrics();
+
+    private static ArgonTerrainRenderObserver TERRAIN_RENDER_OBSERVER =
+            new ArgonTerrainRenderObserver(ArgonConfig.defaults().frameSampleWindow());
 
     private static ChunkBuildMetrics CHUNK_BUILD_METRICS =
             new ChunkBuildMetrics(ArgonConfig.defaults().frameSampleWindow());
@@ -66,6 +70,10 @@ public final class ArgonClient implements ClientModInitializer {
 
     public static NativeChunkQueueMetrics nativeChunkQueueMetrics() {
         return NATIVE_CHUNK_QUEUE_METRICS;
+    }
+
+    public static ArgonTerrainRenderObserver terrainRenderObserver() {
+        return TERRAIN_RENDER_OBSERVER;
     }
 
     public static ChunkBuildMetrics chunkBuildMetrics() {
@@ -147,6 +155,9 @@ public final class ArgonClient implements ClientModInitializer {
                 ArgonFeature.CHUNK_PRIORITY_SCHEDULING, config.chunkSchedulerEnabled());
         FeatureFlags.setEnabled(
                 ArgonFeature.EXPERIMENTAL_RENDERER, config.experimentalRendererEnabled());
+        FeatureFlags.markAvailable(ArgonFeature.TERRAIN_RENDER_OBSERVER, true);
+        FeatureFlags.setEnabled(
+                ArgonFeature.TERRAIN_RENDER_OBSERVER, config.experimentalRendererEnabled());
 
         // The required, version-pinned mixin is part of this client implementation.
         FeatureFlags.markAvailable(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP, true);
@@ -159,6 +170,7 @@ public final class ArgonClient implements ClientModInitializer {
 
         integratedServerTickTimes = new FrameTimeTracker(config.frameSampleWindow());
         CHUNK_BUILD_METRICS = new ChunkBuildMetrics(config.frameSampleWindow());
+        TERRAIN_RENDER_OBSERVER = new ArgonTerrainRenderObserver(config.frameSampleWindow());
         serverTickMonitor = new ServerTickMonitor(integratedServerTickTimes);
         if (config.telemetryEnabled()) {
             FrameTimeMonitor activeFrameMonitor = frameTimeMonitor;
@@ -175,7 +187,7 @@ public final class ArgonClient implements ClientModInitializer {
 
         ArgonCommands.register();
 
-        LOGGER.info(() -> "Argon 0.1.2 initialized. "
+        LOGGER.info(() -> "Argon 0.2.0-renderer-prototype initialized. "
                 + "Cancelled chunk-task cleanup: "
                 + FeatureFlags.status(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP)
                 + "; experimental renderer status: "
