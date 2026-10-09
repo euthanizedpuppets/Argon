@@ -68,7 +68,7 @@ public abstract class SectionTaskDynamicQueueMixin {
     @Inject(method = "add", at = @At("TAIL"))
     private void argon$recordQueueAdd(SectionTask task, CallbackInfo ci) {
         if (ArgonClient.config().telemetryEnabled()) {
-            ArgonClient.recordNativeChunkQueueAdd(this.tasks.size());
+            ArgonClient.recordNativeChunkQueueAdd(task, this.tasks.size());
         }
     }
 
@@ -77,7 +77,7 @@ public abstract class SectionTaskDynamicQueueMixin {
             Vec3 cameraPos, CallbackInfoReturnable<SectionTask> cir) {
         if (ArgonClient.config().telemetryEnabled()) {
             ArgonClient.recordNativeChunkQueuePoll(
-                    cir.getReturnValue() != null, this.tasks.size());
+                    cir.getReturnValue(), cir.getReturnValue() != null, this.tasks.size());
         }
     }
 
