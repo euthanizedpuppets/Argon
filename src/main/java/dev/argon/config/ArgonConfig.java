@@ -71,6 +71,9 @@ public final class ArgonConfig {
         Properties properties = new Properties();
         try (InputStream input = Files.newInputStream(file)) {
             properties.load(input);
+        } catch (IllegalArgumentException malformedProperties) {
+            // Properties.load throws this for malformed Unicode escape sequences.
+            return defaults;
         }
 
         return new ArgonConfig(
