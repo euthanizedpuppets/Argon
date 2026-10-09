@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "argon",
+  "version": "${version}",
+  "name": "Argon",
+  "description": "A modular, performance-focused Minecraft Java optimization suite.",
+  "authors": ["Argon contributors"],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.argon.ArgonClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "java": ">=25"
+  }
+}
