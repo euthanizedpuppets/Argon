@@ -52,6 +52,84 @@ tasks.withType(Test).configureEach {
     }
 }
 
+/*
+ * Compilation alone cannot prove that a client Mixin is named in metadata.
+ * Catch common packaging/config mistakes before asking someone to launch MC.
+ */
+tasks.register("verifyArgonMixinConfiguration") {
+    group = "verification"
+    description = "Validates Argon's required client Mixin metadata and source targets."
+
+    def metadataFile = file("src/main/resources/fabric.mod.json")
+    def mixinConfigFile = file("src/main/resources/argon.client.mixins.json")
+    def mixinSourceDir = file("src/main/java/dev/argon/mixin/chunk")
+
+    inputs.files(metadataFile, mixinConfigFile)
+    inputs.dir(mixinSourceDir)
+
+    doLast {
+        def parser = new groovy.json.JsonSlurper()
+        def metadata = parser.parse(metadataFile)
+        def mixinConfig = parser.parse(mixinConfigFile)
+
+        def registered = metadata.mixins instanceof Collection && metadata.mixins.any { entry ->
+            entry instanceof Map
+                    && entry.config == "argon.client.mixins.json"
+                    && entry.environment == "client"
+        }
+        if (!registered) {
+            throw new GradleException(
+                    "fabric.mod.json must register argon.client.mixins.json for the client.")
+        }
+
+        if (mixinConfig.required != true) {
+            throw new GradleException("Argon's target-specific Mixin config must stay required.")
+        }
+        if (mixinConfig.compatibilityLevel != "JAVA_25") {
+            throw new GradleException("Argon's Mixin compatibilityLevel must be JAVA_25.")
+        }
+        if (!(mixinConfig.client instanceof Collection) || mixinConfig.client.isEmpty()) {
+            throw new GradleException("Argon's client Mixin list is missing or empty.")
+        }
+
+        def packagePath = mixinConfig.package.replace(".", "/")
+        def missingSources = mixinConfig.client.findAll { name ->
+            !file("src/main/java/${packagePath}/${name}.java").isFile()
+        }
+        if (!missingSources.isEmpty()) {
+            throw new GradleException(
+                    "Mixin classes listed in argon.client.mixins.json have no source: ${missingSources}")
+        }
+
+        def accessor = file("src/main/java/dev/argon/mixin/chunk/SectionTaskCancellationAccessor.java")
+                .getText("UTF-8")
+        def queueMixin = file("src/main/java/dev/argon/mixin/chunk/SectionTaskDynamicQueueMixin.java")
+                .getText("UTF-8")
+
+        if (!accessor.contains('@Mixin(targets = "net.minecraft.client.renderer.chunk.SectionRenderDispatcher$RenderSection$SectionTask")')
+                || !accessor.contains('@Accessor("isCancelled")')) {
+            throw new GradleException(
+                    "SectionTask cancellation accessor no longer matches the verified Minecraft 26.3 target.")
+        }
+        if (!queueMixin.contains("@Mixin(SectionTaskDynamicQueue.class)")
+                || !queueMixin.contains('@Inject(method = "add", at = @At("HEAD"))')
+                || !queueMixin.contains("List<SectionTask>")) {
+            throw new GradleException(
+                    "Native chunk queue Mixin target or injection point changed; review before packaging.")
+        }
+
+        logger.lifecycle("Argon client Mixin metadata and Minecraft 26.3 target declarations verified.")
+    }
+}
+
+tasks.named("check") {
+    dependsOn("verifyArgonMixinConfiguration")
+}
+
+tasks.named("build") {
+    dependsOn("verifyArgonMixinConfiguration")
+}
+
 jar {
     from("README.md") {
         into "META-INF"
