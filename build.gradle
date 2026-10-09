@@ -140,24 +140,6 @@ tasks.register("verifyArgonMixinConfiguration") {
                     "Terrain upload timing mixin target or injection point changed; review before packaging.")
         }
 
-        def compileTaskMixin = file("src/main/java/dev/argon/mixin/chunk/SectionCompileTaskMixin.java")
-                .getText("UTF-8")
-        def dispatcherMixin = file("src/main/java/dev/argon/mixin/chunk/SectionRenderDispatcherMixin.java")
-                .getText("UTF-8")
-
-        if (!compileTaskMixin.contains('@Mixin(targets = "net.minecraft.client.renderer.chunk.SectionRenderDispatcher$RenderSection$CompileTask")')
-                || !compileTaskMixin.contains('@Inject(method = "doTask", at = @At("HEAD"))')
-                || !compileTaskMixin.contains('@Inject(method = "doTask", at = @At("RETURN"))')) {
-            throw new GradleException(
-                    "Section mesh compile timing Mixin target or injection point changed; review before packaging.")
-        }
-        if (!dispatcherMixin.contains("@Mixin(SectionRenderDispatcher.class)")
-                || !dispatcherMixin.contains('@Inject(method = "uploadTerrainBuffersToGpu", at = @At("HEAD"))')
-                || !dispatcherMixin.contains('@Inject(method = "uploadTerrainBuffersToGpu", at = @At("RETURN"))')) {
-            throw new GradleException(
-                    "Terrain upload timing Mixin target or injection point changed; review before packaging.")
-        }
-
         logger.lifecycle("Argon client Mixin metadata and Minecraft ${project.minecraft_version} target declarations verified.")
     }
 }
