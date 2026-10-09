@@ -8,6 +8,8 @@ import dev.argon.config.ArgonConfig;
 import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
 import dev.argon.performance.FrameTimeMonitor;
+import dev.argon.performance.GuiIntersectionMetrics;
+import dev.argon.performance.ChunkGenerationMetrics;
 import dev.argon.performance.FrameTimeTracker;
 import dev.argon.performance.ServerTickMonitor;
 import net.fabricmc.api.ClientModInitializer;
@@ -33,6 +35,11 @@ public final class ArgonClient implements ClientModInitializer {
     private static final ChunkCleanupMetrics CHUNK_CLEANUP_METRICS = new ChunkCleanupMetrics();
     private static final NativeChunkQueueMetrics NATIVE_CHUNK_QUEUE_METRICS =
             new NativeChunkQueueMetrics();
+
+    private static GuiIntersectionMetrics GUI_INTERSECTION_METRICS =
+            new GuiIntersectionMetrics(ArgonConfig.defaults().frameSampleWindow());
+    private static ChunkGenerationMetrics CHUNK_GENERATION_METRICS =
+            new ChunkGenerationMetrics(ArgonConfig.defaults().frameSampleWindow());
 
     private static ChunkBuildMetrics CHUNK_BUILD_METRICS =
             new ChunkBuildMetrics(ArgonConfig.defaults().frameSampleWindow());
@@ -66,6 +73,14 @@ public final class ArgonClient implements ClientModInitializer {
 
     public static NativeChunkQueueMetrics nativeChunkQueueMetrics() {
         return NATIVE_CHUNK_QUEUE_METRICS;
+    }
+
+    public static GuiIntersectionMetrics guiIntersectionMetrics() {
+        return GUI_INTERSECTION_METRICS;
+    }
+
+    public static ChunkGenerationMetrics chunkGenerationMetrics() {
+        return CHUNK_GENERATION_METRICS;
     }
 
     public static ChunkBuildMetrics chunkBuildMetrics() {
@@ -149,6 +164,13 @@ public final class ArgonClient implements ClientModInitializer {
                 ArgonFeature.EXPERIMENTAL_RENDERER, config.experimentalRendererEnabled());
 
         // The required, version-pinned mixin is part of this client implementation.
+        FeatureFlags.markAvailable(ArgonFeature.GUI_INTERSECTION_PROFILING, true);
+        FeatureFlags.setEnabled(ArgonFeature.GUI_INTERSECTION_PROFILING,
+                config.telemetryEnabled() && config.guiIntersectionProfilingEnabled());
+        FeatureFlags.markAvailable(ArgonFeature.CHUNK_GENERATION_PROFILING, true);
+        FeatureFlags.setEnabled(ArgonFeature.CHUNK_GENERATION_PROFILING,
+                config.telemetryEnabled() && config.chunkGenerationProfilingEnabled());
+
         FeatureFlags.markAvailable(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP, true);
         FeatureFlags.setEnabled(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP,
                 config.cancelledChunkTaskCleanupEnabled());
@@ -159,6 +181,8 @@ public final class ArgonClient implements ClientModInitializer {
 
         integratedServerTickTimes = new FrameTimeTracker(config.frameSampleWindow());
         CHUNK_BUILD_METRICS = new ChunkBuildMetrics(config.frameSampleWindow());
+        GUI_INTERSECTION_METRICS = new GuiIntersectionMetrics(config.frameSampleWindow());
+        CHUNK_GENERATION_METRICS = new ChunkGenerationMetrics(config.frameSampleWindow());
         serverTickMonitor = new ServerTickMonitor(integratedServerTickTimes);
         if (config.telemetryEnabled()) {
             FrameTimeMonitor activeFrameMonitor = frameTimeMonitor;
@@ -175,7 +199,7 @@ public final class ArgonClient implements ClientModInitializer {
 
         ArgonCommands.register();
 
-        LOGGER.info(() -> "Argon 0.1.2 initialized. "
+        LOGGER.info(() -> "Argon 0.1.4 initialized. "
                 + "Cancelled chunk-task cleanup: "
                 + FeatureFlags.status(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP)
                 + "; experimental renderer status: "
