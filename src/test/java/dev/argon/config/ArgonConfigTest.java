@@ -21,6 +21,8 @@ final class ArgonConfigTest {
         assertFalse(config.chunkSchedulerEnabled());
         assertFalse(config.experimentalRendererEnabled());
         assertFalse(config.cancelledChunkTaskCleanupEnabled());
+        assertFalse(config.guiIntersectionProfilingEnabled());
+        assertFalse(config.chunkGenerationProfilingEnabled());
         assertEquals(256, config.maxQueuedChunkTasks());
         assertEquals(240, config.frameSampleWindow());
     }
@@ -28,7 +30,7 @@ final class ArgonConfigTest {
     @Test
     void saveAndLoadRoundTrip() throws IOException {
         Path file = temporaryDirectory.resolve("nested/argon.properties");
-        ArgonConfig expected = new ArgonConfig(true, true, false, 512, 300, true);
+        ArgonConfig expected = new ArgonConfig(true, true, false, 512, 300, true, true, true);
 
         expected.save(file);
         ArgonConfig actual = ArgonConfig.load(file);
@@ -37,6 +39,8 @@ final class ArgonConfigTest {
         assertTrue(actual.chunkSchedulerEnabled());
         assertFalse(actual.experimentalRendererEnabled());
         assertTrue(actual.cancelledChunkTaskCleanupEnabled());
+        assertTrue(actual.guiIntersectionProfilingEnabled());
+        assertTrue(actual.chunkGenerationProfilingEnabled());
         assertEquals(512, actual.maxQueuedChunkTasks());
         assertEquals(300, actual.frameSampleWindow());
     }
@@ -51,6 +55,8 @@ final class ArgonConfigTest {
                 chunks.queue.capacity=999999
                 performance.frame-window=not-a-number
                 chunks.cancelled-task-cleanup.enabled=maybe
+                performance.gui-intersection.enabled=invalid
+                chunks.generation-profiling.enabled=invalid
                 """);
 
         ArgonConfig config = ArgonConfig.load(file);
@@ -58,6 +64,8 @@ final class ArgonConfigTest {
         assertTrue(config.telemetryEnabled());
         assertTrue(config.chunkSchedulerEnabled());
         assertFalse(config.cancelledChunkTaskCleanupEnabled());
+        assertFalse(config.guiIntersectionProfilingEnabled());
+        assertFalse(config.chunkGenerationProfilingEnabled());
         assertEquals(ArgonConfig.MAX_QUEUE_CAPACITY, config.maxQueuedChunkTasks());
         assertEquals(ArgonConfig.defaults().frameSampleWindow(), config.frameSampleWindow());
     }
@@ -73,6 +81,8 @@ final class ArgonConfigTest {
         assertEquals(ArgonConfig.defaults().chunkSchedulerEnabled(), config.chunkSchedulerEnabled());
         assertEquals(ArgonConfig.defaults().maxQueuedChunkTasks(), config.maxQueuedChunkTasks());
         assertFalse(config.cancelledChunkTaskCleanupEnabled());
+        assertFalse(config.guiIntersectionProfilingEnabled());
+        assertFalse(config.chunkGenerationProfilingEnabled());
     }
 
     @Test
