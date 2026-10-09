@@ -90,6 +90,8 @@ public final class ArgonCommands {
         FrameTimeTracker.Summary queueWait = buildMetrics.queueWaitNanos().summary();
         FrameTimeTracker.Summary compile = buildMetrics.compileDurationNanos().summary();
         FrameTimeTracker.Summary upload = buildMetrics.uploadPassDurationNanos().summary();
+        dev.argon.renderer.ArgonTerrainRenderObserver.Snapshot terrain =
+                ArgonClient.terrainRenderObserver().snapshot();
         if (ArgonClient.config().telemetryEnabled()) {
             report.append("\nSection-task queue-wait samples / total: ")
                     .append(queueWait.sampleCount()).append('/')
@@ -178,6 +180,32 @@ public final class ArgonCommands {
                     .append(FeatureFlags.status(feature));
         }
 
+        report.append("\nTerrain renderer experiment: ")
+                .append(ArgonClient.config().experimentalRendererEnabled()
+                        ? "observer enabled; vanilla still owns terrain GPU drawing"
+                        : "disabled; vanilla terrain renderer");
+        if (ArgonClient.config().telemetryEnabled()
+                && ArgonClient.config().experimentalRendererEnabled()) {
+            report.append("\nTerrain group calls opaque/translucent: ")
+                    .append(terrain.opaqueCalls()).append('/').append(terrain.translucentCalls())
+                    .append("\nTerrain draw groups observed opaque/translucent: ")
+                    .append(terrain.opaqueDrawGroups()).append('/').append(terrain.translucentDrawGroups())
+                    .append("\nTerrain draw entries observed opaque/translucent: ")
+                    .append(terrain.opaqueDrawEntries()).append('/').append(terrain.translucentDrawEntries())
+                    .append("\nOpaque terrain pass CPU avg/P50/P95/max: ")
+                    .append(formatMillis(terrain.opaqueTime().averageNanos())).append(" / ")
+                    .append(formatMillis(terrain.opaqueTime().p50Nanos())).append(" / ")
+                    .append(formatMillis(terrain.opaqueTime().p95Nanos())).append(" / ")
+                    .append(formatMillis(terrain.opaqueTime().maximumNanos()))
+                    .append("\nTranslucent terrain pass CPU avg/P50/P95/max: ")
+                    .append(formatMillis(terrain.translucentTime().averageNanos())).append(" / ")
+                    .append(formatMillis(terrain.translucentTime().p50Nanos())).append(" / ")
+                    .append(formatMillis(terrain.translucentTime().p95Nanos())).append(" / ")
+                    .append(formatMillis(terrain.translucentTime().maximumNanos()));
+        } else if (!ArgonClient.config().telemetryEnabled()) {
+            report.append("\nTerrain pass observer metrics: telemetry disabled");
+        }
+        report.append("\nTerrain pass timings are CPU wall time; this prototype still calls vanilla drawing.");
         report.append("\nWorld-pass intervals are not GPU timings or a guaranteed FPS measurement.");
         report.append("\nIntegrated tick-work excludes wall-clock scheduling delay and shutdown saving.");
         report.append("\nNative queue cleanup does not replace vanilla task ordering.");
