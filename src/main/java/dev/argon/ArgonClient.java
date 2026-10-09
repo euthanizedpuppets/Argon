@@ -52,7 +52,7 @@ public final class ArgonClient implements ClientModInitializer {
     }
 
     public static void recordCancelledChunkTasksPruned(int count) {
-        if (count > 0) {
+        if (config.telemetryEnabled() && count > 0) {
             CANCELLED_CHUNK_TASKS_PRUNED.addAndGet(count);
         }
     }
@@ -94,8 +94,10 @@ public final class ArgonClient implements ClientModInitializer {
         frameTimes = new FrameTimeTracker(config.frameSampleWindow());
         frameTimeMonitor = new FrameTimeMonitor(frameTimes);
         frameTimeMonitor.reset();
-        LevelRenderEvents.END_MAIN.register(
-                context -> frameTimeMonitor.recordFrameBoundary(System.nanoTime()));
+        if (config.telemetryEnabled()) {
+            LevelRenderEvents.END_MAIN.register(
+                    context -> frameTimeMonitor.recordFrameBoundary(System.nanoTime()));
+        }
 
         chunkQueue = new BoundedPriorityTaskQueue<>(config.maxQueuedChunkTasks());
 
@@ -109,6 +111,8 @@ public final class ArgonClient implements ClientModInitializer {
                 + "; chunk scheduler status: "
                 + FeatureFlags.status(ArgonFeature.CHUNK_PRIORITY_SCHEDULING)
                 + "; local metrics enabled: " + config.telemetryEnabled()
-                + "; world-pass interval monitoring enabled.");
+                + (config.telemetryEnabled()
+                    ? "; world-pass interval monitoring enabled."
+                    : "; local metrics collection disabled by configuration."));
     }
 }

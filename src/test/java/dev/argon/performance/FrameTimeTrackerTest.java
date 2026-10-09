@@ -35,10 +35,30 @@ final class FrameTimeTrackerTest {
     }
 
     @Test
-    void emptyTrackerReturnsZero() {
+    void summaryComputesAggregatesAndPercentilesFromOneWindow() {
+        FrameTimeTracker tracker = new FrameTimeTracker(4);
+        tracker.recordFrame(40);
+        tracker.recordFrame(10);
+        tracker.recordFrame(30);
+        tracker.recordFrame(20);
+
+        FrameTimeTracker.Summary summary = tracker.summary();
+
+        assertEquals(4, summary.sampleCount());
+        assertEquals(10L, summary.minimumNanos());
+        assertEquals(25.0, summary.averageNanos(), 0.00001);
+        assertEquals(20L, summary.p50Nanos());
+        assertEquals(40L, summary.p95Nanos());
+        assertEquals(40L, summary.maximumNanos());
+    }
+
+    @Test
+    void emptyTrackerReturnsZeroSummary() {
         FrameTimeTracker tracker = new FrameTimeTracker(3);
+
         assertEquals(0, tracker.percentile(0.95));
         assertEquals(0, tracker.sampleCount());
+        assertEquals(new FrameTimeTracker.Summary(0, 0L, 0.0, 0L, 0L, 0L), tracker.summary());
     }
 
     @Test
@@ -49,6 +69,7 @@ final class FrameTimeTrackerTest {
 
         assertEquals(0, tracker.sampleCount());
         assertArrayEquals(new long[0], tracker.snapshot());
+        assertEquals(0, tracker.summary().sampleCount());
     }
 
     @Test

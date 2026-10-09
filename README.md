@@ -12,9 +12,10 @@ Compilation and tests run in GitHub Actions so contributors do not need to compi
 
 - Fabric client bootstrap and safe configuration loading
 - `/argon status` client-side diagnostic command
-- World-pass interval sampling from Minecraft 26.3's Fabric `LevelRenderEvents.END_MAIN` event
+- World-pass interval sampling from Minecraft 26.3's Fabric `LevelRenderEvents.END_MAIN` event, disabled by `telemetry.enabled=false`
+- Min/average/max/P50/P95 interval summaries from one rolling-window sort
 - Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue
-- Conservative feature flags, bounded queue primitives, rolling frame-time statistics, and GitHub Actions tests/artifact upload
+- Conservative feature flags, bounded queue primitives, and GitHub Actions tests/artifact upload
 
 Native queue cleanup is disabled by default through `chunks.cancelled-task-cleanup.enabled=false`. When enabled, it removes cancelled entries before new tasks are appended, periodically and only above a queue-size threshold. It does not replace vanilla's camera-distance prioritization, task quota, worker, or buffer lifecycle. Its compatibility and performance still require in-game validation; no FPS gain is claimed.
 

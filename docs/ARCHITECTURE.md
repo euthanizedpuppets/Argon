@@ -20,7 +20,7 @@ The initial repository uses one Gradle project and package boundaries. Split int
 
 The client registers Fabric's LevelRenderEvents.END_MAIN event at the end of Minecraft 26.3's main level-render pass. FrameTimeMonitor measures elapsed nanoseconds between successive callbacks and passes valid intervals to the bounded rolling FrameTimeTracker.
 
-This is a low-cost diagnostic estimate of world-render-pass interval, not a GPU timestamp, presentation timestamp, or definitive FPS counter. It samples only while this render event runs. Duplicate/backward timestamps and gaps longer than five seconds are ignored so pauses do not pollute the rolling window. The first callback only establishes a baseline.
+The monitor runs only when `telemetry.enabled=true`. Its summary computes min, average, max, P50, and P95 in one snapshot and sort when the user invokes `/argon status`. This is a diagnostic estimate of world-render-pass interval, not a GPU timestamp, presentation timestamp, or definitive FPS counter. It samples only while this render event runs. Duplicate/backward timestamps and gaps longer than five seconds are ignored so pauses do not pollute the rolling window. The first callback only establishes a baseline.
 
 ## Cancelled chunk-task cleanup
 
@@ -28,7 +28,7 @@ Minecraft 26.3's SectionTaskDynamicQueue already removes cancelled tasks while p
 
 When the opt-in `chunks.cancelled-task-cleanup.enabled=true` setting is enabled, a client-only Mixin checks the native queue before new tasks are appended. If at least 32 tasks are queued, it runs a cleanup pass every 16 additions, removing entries whose vanilla cancellation flag is already set. Removing from the end preserves the order of surviving tasks. The original queue methods continue to own worker scheduling, task execution, and buffer lifecycle.
 
-This is an experimental queue-hygiene hook, not a proven FPS optimization. It is disabled by default and must be tested in an actual 26.3 client before being recommended for normal play. The diagnostic count records how many cancelled entries were removed early.
+This is an experimental queue-hygiene hook, not a proven FPS optimization. It is disabled by default and must be tested in an actual 26.3 client before being recommended for normal play. The diagnostic count records how many cancelled entries were removed early, and that counter is not collected when local metrics are disabled.
 
 ## OpenGL and Vulkan
 

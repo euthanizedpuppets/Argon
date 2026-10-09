@@ -9,16 +9,18 @@
 `dev/argon-core` builds on the bootstrap branch and adds:
 
 - validated configuration parsing and persistence with safe fallback for malformed properties;
-- bounded rolling frame-time samples and percentile calculations;
-- integration with Minecraft 26.3's Fabric `LevelRenderEvents.END_MAIN` callback to collect world-pass interval samples;
+- bounded rolling render-interval samples, with min/average/max/P50/P95 summary;
+- integration with Minecraft 26.3's Fabric `LevelRenderEvents.END_MAIN` callback when local metrics are enabled;
 - a bounded, deduplicating priority queue for Argon's future pure-data tasks;
 - an opt-in Mixin that prunes already-cancelled entries from Minecraft 26.3's native section-task queue;
 - guarded feature flags and the client-side `/argon status` diagnostic command;
-- unit tests for configuration, frame monitoring, and the standalone queue-pruning helper.
+- unit tests for configuration, frame monitoring, summary statistics, and the standalone queue-pruning helper.
 
 Native queue cleanup is disabled by default. It leaves vanilla's distance-based selection and compile/recompile quota unchanged, but actual in-game compatibility and performance have not yet been verified. The feature does not claim an FPS uplift.
 
-The render samples are elapsed intervals between main level-render callbacks. They are not GPU timestamps, presentation timestamps, or a definitive FPS counter. They are collected only while world rendering is active.
+When `telemetry.enabled=false`, Argon does not register the world-render timing callback and does not retain the native queue-pruning counter. This setting is local-only telemetry; no remote reporting service is implemented.
+
+World-pass samples are elapsed intervals between main level-render callbacks. They are not GPU timestamps, presentation timestamps, or a definitive FPS counter.
 
 ## Stability gates
 
