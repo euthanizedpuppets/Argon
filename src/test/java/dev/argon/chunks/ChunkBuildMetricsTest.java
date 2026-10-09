@@ -17,7 +17,7 @@ final class ChunkBuildMetricsTest {
         metrics.recordDequeued(second, 9_000L);
 
         assertEquals(2L, metrics.totalQueueWaitSamples());
-        assertEquals(3_000.0, metrics.queueWaitNanos().summary().averageNanos());
+        assertEquals(5_000.0, metrics.queueWaitNanos().summary().averageNanos());
         assertEquals(7_000L, metrics.queueWaitNanos().summary().maximumNanos());
         assertEquals(0, metrics.pendingTaskTimestamps());
     }
