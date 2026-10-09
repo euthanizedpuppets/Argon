@@ -20,7 +20,7 @@
 - Guarded feature flags, `/argon status`, unit tests and a Gradle Mixin metadata/target declaration check;
 - Opt-in GUI intersection timing/list-size metrics around `GuiRenderState.hasIntersection`.
 - Opt-in `NoiseBasedChunkGenerator.doFill` timing, cumulative duration, and worker-thread counts.
-- A cloud build that uploads only `argon-mc26.2-0.1.4.jar`.
+- A cloud build that uploads only `argon-mc26.2-0.1.5.jar`.
 
 The user reports that the default-settings Minecraft 26.2 client starts, `/argon status` works, and shutdown completes cleanly on the earlier candidate. Native queue cleanup remains disabled by default; its opt-in runtime behavior and performance have not yet been verified in-game. No FPS uplift is claimed.
 
@@ -38,6 +38,11 @@ Render intervals are elapsed times between world-render callbacks, not GPU times
 8. Do not claim FPS gains until repeatable, controlled comparisons support them.
 
 
-## CPU hotspot probes (0.1.4)
+## CPU hotspot probes (0.1.5)
 
 Both profiling switches default to false and require telemetry.enabled=true. GUI instrumentation records counts, true-return count, supplied candidate-list sizes, rolling duration percentiles, and max list size. Noise-fill instrumentation records call count, cumulative duration, recent percentiles, all-time maximum, and the worker threads on which the stage ran. No vanilla behavior is modified by these hooks. These timings are CPU wall-time diagnostics, not proof of a speedup and not full-generation/full-frame metrics.
+
+
+## Runtime Mixin fix (0.1.5)
+
+Minecraft 26.2's `NoiseBasedChunkGenerator.doFill` takes `Blender`, `StructureManager`, `RandomState`, `ChunkAccess`, and two integer arguments, and returns a `ChunkAccess`. Both noise-fill injection handlers now mirror that target signature with `CallbackInfoReturnable<ChunkAccess>`. The Gradle verification task checks for this signature shape to prevent the prior incompatible callback signature from packaging again. CI can validate source/compilation but cannot guarantee that runtime Mixin application will succeed in a real launch; the 0.1.5 JAR still needs the user's startup test.
