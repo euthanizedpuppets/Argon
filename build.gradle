@@ -140,11 +140,23 @@ tasks.register("verifyArgonMixinConfiguration") {
 
         def generationMixin = file("src/main/java/dev/argon/mixin/chunk/NoiseBasedChunkGeneratorMixin.java")
                 .getText("UTF-8")
+        def doFillHandlerCount = generationMixin.readLines().count { line ->
+            line.contains("CallbackInfoReturnable<ChunkAccess> cir")
+        }
         if (!generationMixin.contains("@Mixin(NoiseBasedChunkGenerator.class)")
+                || !generationMixin.contains("Blender blender")
+                || !generationMixin.contains("StructureManager structureManager")
+                || !generationMixin.contains("RandomState randomState")
+                || !generationMixin.contains("ChunkAccess chunk")
+                || !generationMixin.contains("int x")
+                || !generationMixin.contains("int z")
+                || doFillHandlerCount != 2
+                || generationMixin.contains("NoiseChunk")
+                || generationMixin.contains("CallbackInfo ci")
                 || !generationMixin.contains('@Inject(method = "doFill", at = @At("HEAD"))')
                 || !generationMixin.contains('@Inject(method = "doFill", at = @At("RETURN"))')) {
             throw new GradleException(
-                    "Noise chunk generation profiling target or timing hooks changed; review before packaging.")
+                    "NoiseBasedChunkGenerator.doFill handler signatures no longer match Minecraft 26.2; review the exact target descriptor before packaging.")
         }
 
         def compileTaskMixin = file("src/main/java/dev/argon/mixin/chunk/SectionCompileTaskMixin.java")
