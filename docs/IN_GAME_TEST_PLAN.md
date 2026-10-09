@@ -1,13 +1,13 @@
-# Argon Minecraft 26.2 — first in-game smoke test
+# Argon Minecraft 26.2 — queue cleanup validation
 
-This branch is a 26.2 compatibility test candidate so it can be tried on the user's current graphics stack. It is not a performance-release claim.
+The user has confirmed that the default-settings 26.2 build starts, `/argon status` works, and normal shutdown completes. This candidate adds native queue pressure counters; the optional cancelled-task cleanup path still needs isolated in-game validation. It is not a performance-release claim.
 
 ## Before installing
 
 1. Use a separate Minecraft 26.2 Fabric instance with Java 25, Fabric Loader 0.19.5, and Fabric API 0.161.0+26.2.
 2. Back up any world you care about. Prefer a temporary test world for the first launch.
-3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.0`.
-4. Extract the ZIP and place only `argon-mc26.2-0.1.0.jar` in that instance's `mods` directory. Close Minecraft before adding it.
+3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.1`.
+4. Extract the ZIP and place only `argon-mc26.2-0.1.1.jar` in that instance's `mods` directory. Close Minecraft before adding it.
 5. Start with no other performance mods where practical, so a crash or behavior change is easier to isolate.
 
 ## Test A — default settings
@@ -29,7 +29,7 @@ Launch the game, reach the title screen, and enter a disposable world. Run:
 /argon status
 ```
 
-Confirm the world-pass sample count grows while the world is rendering. In single-player, confirm the integrated server tick-work sample count also grows. The cleanup feature should report `CANCELLED_CHUNK_TASK_CLEANUP: DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
+First verify the new native queue counters appear and change while moving around. `Native chunk queue depth current/peak` shows pending queue pressure, while additions, poll calls, successful poll returns, and clears are session totals. Confirm the world-pass sample count grows while the world is rendering. In single-player, confirm the integrated server tick-work sample count also grows. The cleanup feature should report `CANCELLED_CHUNK_TASK_CLEANUP: DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
 
 ## Test B — opt-in queue cleanup
 
@@ -41,7 +41,7 @@ chunks.cancelled-task-cleanup.enabled=true
 
 Restart and confirm `/argon status` says `CANCELLED_CHUNK_TASK_CLEANUP: ACTIVE`. In a disposable world, move quickly across chunk boundaries, rotate the camera through dense terrain, and revisit areas likely to trigger chunk rebuilds. Watch for startup crashes, missing chunks, visual corruption, severe stutters, or console errors.
 
-If queue cleanups happen, `/argon status` reports scan count, entries inspected/pruned, and average/maximum scan duration. These counters help us assess the added overhead; seeing a positive prune count does not itself prove an FPS benefit.
+This test is specifically for the opt-in cleanup path. Enable it only in a disposable world. If queue cleanups happen, `/argon status` reports scan count, entries inspected/pruned, and average/maximum scan duration. These counters help us assess the added overhead; seeing a positive prune count does not itself prove an FPS benefit.
 
 If anything unusual occurs, close the game and set the option back to `false` before another launch. This setting is opt-in because it has passed CI but has not yet been validated in a real 26.2 client.
 
