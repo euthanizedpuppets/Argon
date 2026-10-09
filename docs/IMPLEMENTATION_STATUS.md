@@ -16,10 +16,11 @@
 - Optional-cleanup metrics for scan counts, entries inspected/pruned, and average/maximum scan duration;
 - Native section-task queue add/poll/successful-poll/clear counters and current/peak depth, guarded by `telemetry.enabled`;
 - Rolling measurements for native queue wait, section mesh compile duration, and CPU wall time in terrain-buffer upload passes;
+- Fabric metadata declares the packaged icon at `assets/argon/icon.png`, verified during the Gradle build;
 - Guarded feature flags, `/argon status`, unit tests and a Gradle Mixin metadata/target declaration check;
-- A cloud build that uploads only `argon-mc26.2-0.1.2.jar`.
+- A cloud build that uploads only `argon-mc26.2-0.1.3.jar`.
 
-The user reports that the default-settings Minecraft 26.2 client starts, `/argon status` works, and shutdown completes cleanly on the previous 0.1.0 candidate. Native queue cleanup remains disabled by default; its opt-in runtime behavior and performance have not yet been verified in-game. No FPS uplift is claimed.
+The user reports that the default-settings Minecraft 26.2 client starts, `/argon status` works, and shutdown completes cleanly on the earlier candidate. Native queue cleanup remains disabled by default; its opt-in runtime behavior and performance have not yet been verified in-game. No FPS uplift is claimed.
 
 Render intervals are elapsed times between world-render callbacks, not GPU timestamps, presentation timestamps, or a definitive FPS counter. Integrated tick-work durations are measured between server tick callbacks; they apply only to the single-player integrated server and do not measure shutdown saving. Local metrics are opt-in via `telemetry.enabled=true`; no remote reporting exists.
 
