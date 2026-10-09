@@ -8,12 +8,15 @@ The goal is to improve rendering overhead, chunk rebuild scheduling, memory allo
 
 Compilation and tests run in GitHub Actions so contributors do not need to compile Minecraft on low-end hardware. Open the Actions tab and download the JAR artifact from a successful Argon CI run. The workflow provisions JDK 25 and Gradle 9.6.0.
 
+The current 26.3 candidate artifact is `argon-mc26.3-0.1.1`; download the runtime JAR from a successful run. The icon is bundled in the JAR at `assets/argon/icon.png` and declared in Fabric metadata.
+
 CI runs unit tests and a resource verification task that checks the required target-version Mixin config is registered and its declared classes/targets remain present. This does not replace a real Minecraft launch test.
 
 ## Current scope
 
 - Fabric client bootstrap and safe configuration loading
 - `/argon status` client-side diagnostic command
+- Bundled Argon mod icon referenced through Fabric metadata
 - World-pass interval sampling from Minecraft 26.3's Fabric `LevelRenderEvents.END_MAIN` event, disabled by `telemetry.enabled=false`
 - Min/average/max/P50/P95 interval summaries from one rolling-window sort
 - Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue

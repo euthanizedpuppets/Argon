@@ -3,6 +3,7 @@
   "id": "argon",
   "version": "${version}",
   "name": "Argon",
+  "icon": "assets/argon/icon.png",
   "description": "A modular, performance-focused Minecraft Java optimization suite.",
   "authors": ["Argon contributors"],
   "environment": "client",

@@ -1,12 +1,12 @@
-# Argon 0.1 — first in-game smoke test
+# Argon 0.1.1 — Minecraft 26.3 smoke test
 
-This build is intended to verify startup compatibility and gather an initial baseline. It is not a performance-release claim.
+This build includes the bundled mod icon and verifies startup compatibility on Minecraft 26.3. It is not a performance-release claim.
 
 ## Before installing
 
 1. Use a separate Minecraft 26.3 Fabric instance with Java 25, Fabric Loader 0.19.5, and Fabric API 0.162.0+26.3.
 2. Back up any world you care about. Prefer a temporary test world for the first launch.
-3. Download the `argon-0.1.0` artifact from the latest successful Argon CI run. Use the JAR inside the downloaded artifact ZIP.
+3. Download the `argon-mc26.3-0.1.1` artifact from the latest successful Argon CI run. Use the JAR inside the downloaded artifact ZIP.
 4. Close Minecraft before adding the JAR to that instance's `mods` folder. Avoid mixing this first test with other optimization mods where possible.
 
 ## Test A — default settings

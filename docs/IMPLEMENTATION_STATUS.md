@@ -15,6 +15,7 @@
 - an opt-in Mixin that prunes already-cancelled entries from Minecraft 26.3's native section-task queue;
 - a Gradle resource-verification task for Mixin metadata and target declarations;
 - guarded feature flags, the client-side `/argon status` diagnostic command, and unit tests.
+- Fabric mod metadata declares the bundled icon at `assets/argon/icon.png`, verified by the Gradle check;
 
 Native queue cleanup is disabled by default. It leaves vanilla's distance-based selection and compile/recompile quota unchanged, but actual in-game compatibility and performance have not yet been verified. The feature does not claim an FPS uplift.
 

@@ -1,6 +1,8 @@
-# Argon 0.1 Architecture
+# Argon 0.1.1 Architecture
 
 ## Goals
+
+The mod icon is a versioned resource at `assets/argon/icon.png`, declared by `fabric.mod.json`. CI fails if metadata or the icon asset is missing.
 
 Argon is a Java-first Fabric client optimization suite for Minecraft Java Edition 26.3. Optimize measured bottlenecks while preserving gameplay correctness and isolating experimental changes.
 

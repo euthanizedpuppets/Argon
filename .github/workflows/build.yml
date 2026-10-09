@@ -46,7 +46,7 @@ jobs:
       - name: Upload Argon JAR
         uses: actions/upload-artifact@v4
         with:
-          name: argon-0.1.0
-          path: build/libs/*.jar
+          name: argon-mc26.3-0.1.1
+          path: build/libs/argon-0.1.1.jar
           if-no-files-found: error
           retention-days: 14
