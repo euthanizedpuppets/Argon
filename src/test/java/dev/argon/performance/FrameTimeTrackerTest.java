@@ -16,10 +16,22 @@ final class FrameTimeTrackerTest {
         tracker.recordFrame(20);
 
         assertEquals(4, tracker.sampleCount());
-        assertArrayEquals(new long[]{10, 30, 20, 40}, tracker.snapshot());
-        assertEquals(20, tracker.percentile(0.25));
+        assertArrayEquals(new long[]{40, 10, 30, 20}, tracker.snapshot());
+        assertEquals(10, tracker.percentile(0.25));
+        assertEquals(20, tracker.percentile(0.50));
         assertEquals(40, tracker.percentile(1.0));
         assertEquals(10, tracker.percentile(-1.0));
+    }
+
+    @Test
+    void snapshotRemainsChronologicalAfterRingWraps() {
+        FrameTimeTracker tracker = new FrameTimeTracker(3);
+        tracker.recordFrame(10);
+        tracker.recordFrame(20);
+        tracker.recordFrame(30);
+        tracker.recordFrame(40);
+
+        assertArrayEquals(new long[]{20, 30, 40}, tracker.snapshot());
     }
 
     @Test
