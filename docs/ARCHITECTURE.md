@@ -1,4 +1,4 @@
-# Argon 0.1.1 Architecture — Minecraft 26.2 test branch
+# Argon 0.1.2 Architecture — Minecraft 26.2 test branch
 
 ## Goals
 
@@ -41,6 +41,18 @@ The cleanup pass uses stable linear compaction for the queue's random-access tas
 When local telemetry is enabled, the queue Mixin records successful task additions, poll calls, non-null tasks returned, queue clears, entries removed by clear, and current/peak queue depth. Samples are session-local and are reported by `/argon status`. The depth is captured after additions and polls, and after a clear it is recorded as zero. These counters help establish whether the queue accumulates work during a reproducible traversal; they do not measure time spent compiling a mesh or establish an FPS improvement.
 
 The hooks do not change the native queue's distance selection, recompile quota, cancellation policy, or worker scheduling. Telemetry can be disabled using `telemetry.enabled=false`; in that mode these counters are not collected. Cancelled-task pruning remains a separate opt-in experiment.
+
+## Chunk-build stage timings
+
+With `telemetry.enabled=true`, Argon records three separate rolling timing windows:
+
+- Native section-task queue residence time, from queue addition until a task is returned by `poll`.
+- Actual `CompileTask.doTask` duration for section mesh builds, excluding queue residence time.
+- CPU wall time spent inside `SectionRenderDispatcher.uploadTerrainBuffersToGpu`.
+
+The upload measurement is not a GPU timestamp and cannot establish when hardware finishes rendering the buffers. Queue timing may include cancelled or transparency-resort tasks; compile timing only observes concrete section compile tasks. None of these timings include server-side chunk generation or all prerequisite gates such as neighbor availability. The windows are session-local and reported through `/argon status`.
+
+These measurements are diagnostic only. They do not increase thread counts, change scratch-buffer allocation, alter queue ordering, prioritize tasks, or modify upload behavior. Compare queue wait, compile duration, upload-method time, and integrated-server tick work before choosing an optimization.
 
 ## Graphics backend considerations
 
