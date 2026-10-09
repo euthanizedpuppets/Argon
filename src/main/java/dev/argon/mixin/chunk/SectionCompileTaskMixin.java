@@ -1,7 +1,7 @@
 package dev.argon.mixin.chunk;
 
 import dev.argon.ArgonClient;
-import net.minecraft.client.renderer.chunk.SectionBufferBuilderPack;
+import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,7 +33,7 @@ public abstract class SectionCompileTaskMixin {
     @Inject(method = "doTask", at = @At("RETURN"))
     private void argon$finishCompileTimer(
             SectionBufferBuilderPack buffers,
-            CallbackInfoReturnable<SectionTaskResult> cir) {
+            CallbackInfoReturnable<?> cir) {
         if (this.argon$compileTimerActive) {
             ArgonClient.recordSectionCompileDuration(
                     System.nanoTime() - this.argon$compileStartedAtNanos);
