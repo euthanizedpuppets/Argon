@@ -72,6 +72,13 @@ tasks.register("verifyArgonMixinConfiguration") {
         def metadata = parser.parse(metadataFile)
         def mixinConfig = parser.parse(mixinConfigFile)
 
+        if (metadata.icon != "assets/argon/icon.png") {
+            throw new GradleException("fabric.mod.json must declare the bundled assets/argon/icon.png icon.")
+        }
+        if (!file("src/main/resources/${metadata.icon}").isFile()) {
+            throw new GradleException("The declared Argon icon is missing from src/main/resources.")
+        }
+
         def registered = metadata.mixins instanceof Collection && metadata.mixins.any { entry ->
             entry instanceof Map
                     && entry.config == "argon.client.mixins.json"
