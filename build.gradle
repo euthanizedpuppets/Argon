@@ -11,11 +11,15 @@ base {
 
 repositories {
     mavenCentral()
+    maven {
+        url = "https://maven.fabricmc.net/"
+    }
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 
     testImplementation platform("org.junit:junit-bom:5.12.2")
     testImplementation "org.junit.jupiter:junit-jupiter"
