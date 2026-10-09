@@ -1,6 +1,7 @@
 package dev.argon;
 
 import dev.argon.chunks.ChunkCleanupMetrics;
+import dev.argon.chunks.ChunkBuildMetrics;
 import dev.argon.chunks.NativeChunkQueueMetrics;
 import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
@@ -32,6 +33,7 @@ public final class ArgonCommands {
         FrameTimeTracker.Summary server = serverTracker.summary();
         ChunkCleanupMetrics.Snapshot cleanup = ArgonClient.chunkCleanupMetrics().snapshot();
         NativeChunkQueueMetrics.Snapshot nativeQueue = ArgonClient.nativeChunkQueueMetrics().snapshot();
+        ChunkBuildMetrics buildMetrics = ArgonClient.chunkBuildMetrics();
 
         StringBuilder report = new StringBuilder()
                 .append("Argon diagnostics")
@@ -83,6 +85,46 @@ public final class ArgonCommands {
                     .append(nativeQueue.tasksCleared());
         } else {
             report.append("\nNative chunk queue metrics: not collected");
+        }
+
+        FrameTimeTracker.Summary queueWait = buildMetrics.queueWaitNanos().summary();
+        FrameTimeTracker.Summary compile = buildMetrics.compileDurationNanos().summary();
+        FrameTimeTracker.Summary upload = buildMetrics.uploadPassDurationNanos().summary();
+        if (ArgonClient.config().telemetryEnabled()) {
+            report.append("\nSection-task queue-wait samples / total: ")
+                    .append(queueWait.sampleCount()).append('/')
+                    .append(buildMetrics.totalQueueWaitSamples());
+            if (queueWait.sampleCount() > 0) {
+                report.append("\nSection-task queue wait avg/P50/P95/max: ")
+                        .append(formatMillis(queueWait.averageNanos())).append(" / ")
+                        .append(formatMillis(queueWait.p50Nanos())).append(" / ")
+                        .append(formatMillis(queueWait.p95Nanos())).append(" / ")
+                        .append(formatMillis(queueWait.maximumNanos()));
+            }
+
+            report.append("\nSection mesh compile samples / total: ")
+                    .append(compile.sampleCount()).append('/')
+                    .append(buildMetrics.totalCompileSamples());
+            if (compile.sampleCount() > 0) {
+                report.append("\nMesh compile avg/P50/P95/max: ")
+                        .append(formatMillis(compile.averageNanos())).append(" / ")
+                        .append(formatMillis(compile.p50Nanos())).append(" / ")
+                        .append(formatMillis(compile.p95Nanos())).append(" / ")
+                        .append(formatMillis(compile.maximumNanos()));
+            }
+
+            report.append("\nTerrain upload-pass samples / total: ")
+                    .append(upload.sampleCount()).append('/')
+                    .append(buildMetrics.totalUploadPassSamples());
+            if (upload.sampleCount() > 0) {
+                report.append("\nUpload method CPU time avg/P50/P95/max: ")
+                        .append(formatMillis(upload.averageNanos())).append(" / ")
+                        .append(formatMillis(upload.p50Nanos())).append(" / ")
+                        .append(formatMillis(upload.p95Nanos())).append(" / ")
+                        .append(formatMillis(upload.maximumNanos()));
+            }
+        } else {
+            report.append("\nChunk build pipeline metrics: not collected");
         }
 
         report.append("\nWorld-pass interval samples: ")
@@ -139,6 +181,7 @@ public final class ArgonCommands {
         report.append("\nWorld-pass intervals are not GPU timings or a guaranteed FPS measurement.");
         report.append("\nIntegrated tick-work excludes wall-clock scheduling delay and shutdown saving.");
         report.append("\nNative queue cleanup does not replace vanilla task ordering.");
+        report.append("\nCompile timings cover CompileTask.doTask; upload timings are CPU wall time, not GPU completion.");
         return report.toString();
     }
 
