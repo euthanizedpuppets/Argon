@@ -35,128 +35,192 @@ jobs:
           jfr summary test/argon-village.jfr | tee jfr-summary.txt
           echo
           echo "=== Export selected events to JSON ==="
-          jfr print --json --events jdk.ExecutionSample,jdk.NativeMethodSample,jdk.ThreadCPULoad,jdk.GCPhasePause,jdk.GarbageCollection,jdk.JavaMonitorEnter,jdk.ThreadPark,jdk.FileRead,jdk.SocketRead test/argon-village.jfr > jfr-events.json
+          jfr print --json --events jdk.ExecutionSample,jdk.NativeMethodSample,jdk.ThreadCPULoad,jdk.CPULoad,jdk.ObjectAllocationSample,jdk.GCHeapSummary,jdk.GCPhasePause,jdk.GarbageCollection,jdk.JavaMonitorEnter,jdk.ThreadPark,jdk.FileRead,jdk.SocketRead test/argon-village.jfr > jfr-events.json
           python3 - <<'PY'
           import collections
+          import datetime
           import json
+          import re
           from pathlib import Path
 
           root = json.loads(Path("jfr-events.json").read_text())
           recording = root.get("recording", root)
           events = recording.get("events", [])
           counts = collections.Counter()
-          thread_counts = collections.Counter()
-          leaf_methods = collections.Counter()
-          inclusive_methods = collections.Counter()
-          thread_leaf = collections.defaultdict(collections.Counter)
-          sample_stacks = collections.Counter()
-          lock_events = []
-          gc_events = []
+          java_threads = collections.Counter()
+          native_threads = collections.Counter()
+          java_leaf = collections.Counter()
+          native_leaf = collections.Counter()
+          java_inclusive = collections.Counter()
+          java_thread_leaf = collections.defaultdict(collections.Counter)
+          java_stacks = collections.Counter()
+          alloc_count = collections.Counter()
+          alloc_weight = collections.Counter()
+          cpu_load = collections.defaultdict(list)
+          pause_durations = []
+          gc_collections = []
+          waits = []
+          timed_java_samples = []
+          start_times = []
 
           def method_name(frame):
               method = frame.get("method") or {}
               typ = method.get("type") or {}
-              cls = typ.get("name") or typ.get("package") or "?"
-              name = method.get("name") or "?"
-              return f"{cls}.{name}"
+              return f"{typ.get('name', '?')}.{method.get('name', '?')}"
 
-          def get_thread(values):
+          def thread_name(values):
               for key in ("sampledThread", "eventThread", "thread"):
                   value = values.get(key)
                   if isinstance(value, dict):
-                      return (value.get("javaName") or value.get("osName")
-                              or value.get("name") or "?")
+                      return value.get("javaName") or value.get("osName") or value.get("name") or "?"
               return "?"
+
+          def event_time(values):
+              value = values.get("startTime")
+              if not isinstance(value, str):
+                  return None
+              try:
+                  return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+              except ValueError:
+                  return None
+
+          def duration_seconds(value):
+              if not isinstance(value, str):
+                  return None
+              # JFR JSON uses ISO-8601 values such as PT0.0005S.
+              m = re.fullmatch(r"PT(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?", value)
+              if not m:
+                  return None
+              h, minute, second = (float(x or 0) for x in m.groups())
+              return h * 3600 + minute * 60 + second
 
           for event in events:
               typ = event.get("type", "?")
               counts[typ] += 1
               values = event.get("values") or {}
-              if typ in ("jdk.ExecutionSample", "jdk.NativeMethodSample"):
-                  thread = get_thread(values)
-                  thread_counts[thread] += 1
+              when = event_time(values)
+              if when:
+                  start_times.append(when)
+
+              if typ == "jdk.ExecutionSample":
+                  thread = thread_name(values)
+                  java_threads[thread] += 1
                   trace = values.get("stackTrace") or {}
                   frames = trace.get("frames", []) if isinstance(trace, dict) else []
-                  names = [method_name(f) for f in frames if isinstance(f, dict)]
+                  names = [method_name(frame) for frame in frames if isinstance(frame, dict)]
                   if names:
-                      leaf_methods[names[0]] += 1
-                      thread_leaf[thread][names[0]] += 1
-                      sample_stacks[" -> ".join(names[:6])] += 1
-                      inclusive_methods.update(set(names))
+                      java_leaf[names[0]] += 1
+                      java_thread_leaf[thread][names[0]] += 1
+                      java_stacks[" -> ".join(names[:7])] += 1
+                      java_inclusive.update(set(names))
+                      timed_java_samples.append((when, thread, names[0], names))
+              elif typ == "jdk.NativeMethodSample":
+                  thread = thread_name(values)
+                  native_threads[thread] += 1
+                  trace = values.get("stackTrace") or {}
+                  frames = trace.get("frames", []) if isinstance(trace, dict) else []
+                  names = [method_name(frame) for frame in frames if isinstance(frame, dict)]
+                  if names:
+                      native_leaf[names[0]] += 1
+              elif typ == "jdk.ObjectAllocationSample":
+                  cls = values.get("objectClass")
+                  name = cls.get("name", "?") if isinstance(cls, dict) else str(cls or "?")
+                  alloc_count[name] += 1
+                  weight = values.get("weight")
+                  if isinstance(weight, (int, float)):
+                      alloc_weight[name] += weight
+              elif typ == "jdk.ThreadCPULoad":
+                  thread = thread_name(values)
+                  total = values.get("total")
+                  if isinstance(total, (int, float)):
+                      cpu_load[thread].append(total * 100.0)
+              elif typ == "jdk.GCPhasePause":
+                  d = duration_seconds(values.get("duration"))
+                  if d is not None:
+                      pause_durations.append((d, values.get("name")))
+              elif typ == "jdk.GarbageCollection":
+                  gc_collections.append({
+                      "name": values.get("name"),
+                      "cause": values.get("cause"),
+                      "duration": values.get("duration"),
+                      "sumOfPauses": values.get("sumOfPauses"),
+                      "longestPause": values.get("longestPause")
+                  })
               elif typ in ("jdk.JavaMonitorEnter", "jdk.ThreadPark"):
-                  if len(lock_events) < 40:
-                      lock_events.append({
-                          "type": typ,
-                          "thread": get_thread(values),
-                          "duration": values.get("duration"),
-                          "monitorClass": (values.get("monitorClass") or {}).get("name")
-                              if isinstance(values.get("monitorClass"), dict)
-                              else values.get("monitorClass"),
-                          "parkedClass": values.get("parkedClass")
-                      })
-              elif typ in ("jdk.GCPhasePause", "jdk.GarbageCollection"):
-                  if len(gc_events) < 50:
-                      gc_events.append({
-                          "type": typ,
-                          "name": values.get("name"),
-                          "cause": values.get("cause"),
-                          "duration": values.get("duration"),
-                          "sumOfPauses": values.get("sumOfPauses"),
-                          "longestPause": values.get("longestPause")
-                      })
+                  waits.append({
+                      "type": typ,
+                      "thread": thread_name(values),
+                      "duration": values.get("duration"),
+                      "monitorClass": values.get("monitorClass"),
+                      "parkedClass": values.get("parkedClass")
+                  })
 
-          print("\n=== Selected event counts ===")
-          for name, count in counts.most_common():
-              print(f"{name}: {count}")
+          def show(title, counter, limit=25):
+              print(f"\n=== {title} ===")
+              for name, count in counter.most_common(limit):
+                  print(f"{count:6}  {name}")
 
-          print("\n=== Execution samples by thread ===")
-          for name, count in thread_counts.most_common(20):
-              print(f"{count:5d}  {name}")
+          print("=== Recording analysis ===")
+          print(f"Events decoded: {len(events)}")
+          print(f"Sample event time range: {min(start_times) if start_times else 'unknown'} to {max(start_times) if start_times else 'unknown'}")
+          show("All event counts", counts, 40)
+          show("Java execution samples by thread (CPU stack samples)", java_threads, 30)
+          show("Java execution sample leaf methods (not exact CPU percent)", java_leaf, 35)
+          show("Java methods appearing in sampled stacks (inclusive indicator)", java_inclusive, 40)
+          show("Native method samples by thread (includes blocking/native waits)", native_threads, 25)
+          show("Native sample leaf methods (not necessarily CPU-busy)", native_leaf, 30)
 
-          print("\n=== Most common sampled leaf methods (self/leaf indicator, not exact CPU percent) ===")
-          for name, count in leaf_methods.most_common(30):
-              print(f"{count:5d}  {name}")
+          for thread in ("main", "Render thread", "Server thread", "Worker-Main-1", "Worker-Main-2", "Worker-Main-3", "Worker-Main-4"):
+              if java_thread_leaf.get(thread):
+                  show(f"Java leaf methods on {thread}", java_thread_leaf[thread], 20)
 
-          print("\n=== Methods appearing most often across sampled stacks (inclusive indicator) ===")
-          for name, count in inclusive_methods.most_common(35):
-              print(f"{count:5d}  {name}")
+          show("Most common Java sample stack traces", java_stacks, 20)
+          show("Allocation sample counts by class (sampling, not exact totals)", alloc_count, 25)
+          show("Allocation sampled weight by class (bytes are approximate sampler weights)", alloc_weight, 25)
 
-          for thread in ("Server thread", "Render thread"):
-              if thread_leaf.get(thread):
-                  print(f"\n=== Most common leaf methods on {thread} ===")
-                  for name, count in thread_leaf[thread].most_common(20):
-                      print(f"{count:5d}  {name}")
+          print("\n=== Thread CPU load samples (average reported per-thread total %) ===")
+          for name, values in sorted(cpu_load.items(), key=lambda item: sum(item[1]) / len(item[1]), reverse=True):
+              print(f"{sum(values)/len(values):6.1f}% avg from {len(values):3} samples  {name}")
 
-          print("\n=== Most common sampled stack traces ===")
-          for stack, count in sample_stacks.most_common(15):
-              print(f"{count:5d}  {stack}")
-
-          print("\n=== First selected GC events (event fields depend on JDK event schema) ===")
-          for item in gc_events[:20]:
+          print("\n=== Garbage collection summary ===")
+          print(f"GC collection events: {len(gc_collections)}")
+          if pause_durations:
+              print(f"JFR GC pause-phase events: {len(pause_durations)}; total reported phase duration: {sum(x[0] for x in pause_durations)*1000:.3f} ms; maximum individual phase: {max(x[0] for x in pause_durations)*1000:.3f} ms")
+              show("GC pause phase names", collections.Counter(name for _, name in pause_durations), 30)
+          for item in gc_collections[:30]:
               print(json.dumps(item, sort_keys=True))
 
-          print("\n=== First selected monitor/park events ===")
-          for item in lock_events[:20]:
+          print("\n=== Slow monitor/park event examples (top 20 by duration) ===")
+          for item in sorted(waits, key=lambda x: duration_seconds(x.get("duration")) or 0, reverse=True)[:20]:
               print(json.dumps(item, sort_keys=True))
 
-          # Upload these compact summaries as text so we can inspect all values without
-          # transporting the binary JFR or dumping a massive stack-trace export.
-          Path("jfr-analysis-summary.txt").write_text(
-              "Selected event counts\n" +
-              "\n".join(f"{k}: {v}" for k, v in counts.most_common()) +
-              "\n\nExecution samples by thread\n" +
-              "\n".join(f"{k}: {v}" for k, v in thread_counts.most_common()) +
-              "\n\nLeaf methods\n" +
-              "\n".join(f"{k}: {v}" for k, v in leaf_methods.most_common(100)) +
-              "\n\nInclusive methods\n" +
-              "\n".join(f"{k}: {v}" for k, v in inclusive_methods.most_common(120)) +
-              "\n\nFrequent stacks\n" +
-              "\n".join(f"{k}: {v}" for k, v in sample_stacks.most_common(60)) +
-              "\n\nGC events\n" +
-              "\n".join(json.dumps(x, sort_keys=True) for x in gc_events) +
-              "\n\nMonitor/park events\n" +
-              "\n".join(json.dumps(x, sort_keys=True) for x in lock_events)
-          )
+          # Show whether notable Java hot methods are concentrated early or late.
+          if timed_java_samples and start_times:
+              lo, hi = min(start_times), max(start_times)
+              span = max((hi - lo).total_seconds(), 1.0)
+              thirds = collections.defaultdict(collections.Counter)
+              for when, thread, leaf, names in timed_java_samples:
+                  if when is None:
+                      continue
+                  sec = (when - lo).total_seconds()
+                  bucket = min(2, int(sec / span * 3))
+                  thirds[bucket][leaf] += 1
+              for bucket in range(3):
+                  show(f"Java leaf methods in time segment {bucket+1}/3", thirds[bucket], 15)
+
+          out = [
+              "All event counts", "\n".join(f"{k}: {v}" for k, v in counts.most_common()),
+              "Java execution samples by thread", "\n".join(f"{k}: {v}" for k, v in java_threads.most_common()),
+              "Java leaf methods", "\n".join(f"{k}: {v}" for k, v in java_leaf.most_common(100)),
+              "Native leaf methods", "\n".join(f"{k}: {v}" for k, v in native_leaf.most_common(100)),
+              "Java inclusive methods", "\n".join(f"{k}: {v}" for k, v in java_inclusive.most_common(150)),
+              "Java sample stacks", "\n".join(f"{k}: {v}" for k, v in java_stacks.most_common(80)),
+              "Allocation sampled weights", "\n".join(f"{k}: {v}" for k, v in alloc_weight.most_common(100)),
+              "Thread CPU load", "\n".join(f"{k}: avg={sum(v)/len(v):.3f} samples={len(v)}" for k, v in cpu_load.items()),
+              "GC pauses", f"count={len(pause_durations)} sum_ms={sum(x[0] for x in pause_durations)*1000:.3f} max_ms={max((x[0] for x in pause_durations), default=0)*1000:.3f}",
+              "GC collections", "\n".join(json.dumps(x, sort_keys=True) for x in gc_collections),
+          ]
+          Path("jfr-analysis-summary.txt").write_text("\n\n".join(out))
           PY
 
       - name: Upload compact JFR analysis
