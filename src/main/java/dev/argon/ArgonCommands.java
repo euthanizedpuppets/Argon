@@ -1,6 +1,7 @@
 package dev.argon;
 
 import dev.argon.chunks.ChunkCleanupMetrics;
+import dev.argon.chunks.NativeChunkQueueMetrics;
 import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
 import dev.argon.performance.FrameTimeTracker;
@@ -30,6 +31,7 @@ public final class ArgonCommands {
         FrameTimeTracker serverTracker = ArgonClient.integratedServerTickTimes();
         FrameTimeTracker.Summary server = serverTracker.summary();
         ChunkCleanupMetrics.Snapshot cleanup = ArgonClient.chunkCleanupMetrics().snapshot();
+        NativeChunkQueueMetrics.Snapshot nativeQueue = ArgonClient.nativeChunkQueueMetrics().snapshot();
 
         StringBuilder report = new StringBuilder()
                 .append("Argon diagnostics")
@@ -59,11 +61,31 @@ public final class ArgonCommands {
             report.append("\nCleanup scan metrics: not collected");
         }
 
-        report.append("\nArgon utility queue: ")
+        report.append("\nArgon utility queue (not Minecraft's native queue): ")
                 .append(ArgonClient.chunkQueue().size())
                 .append('/')
-                .append(ArgonClient.chunkQueue().capacity())
-                .append("\nWorld-pass interval samples: ")
+                .append(ArgonClient.chunkQueue().capacity());
+
+        if (ArgonClient.config().telemetryEnabled()) {
+            report.append("\nNative chunk queue depth current/peak: ")
+                    .append(nativeQueue.currentDepth())
+                    .append('/')
+                    .append(nativeQueue.peakDepth())
+                    .append("\nNative chunk queue adds/poll calls/tasks returned: ")
+                    .append(nativeQueue.tasksAdded())
+                    .append('/')
+                    .append(nativeQueue.pollCalls())
+                    .append('/')
+                    .append(nativeQueue.tasksPolled())
+                    .append("\nNative chunk queue clears/entries cleared: ")
+                    .append(nativeQueue.clearCalls())
+                    .append('/')
+                    .append(nativeQueue.tasksCleared());
+        } else {
+            report.append("\nNative chunk queue metrics: not collected");
+        }
+
+        report.append("\nWorld-pass interval samples: ")
                 .append(render.sampleCount())
                 .append('/')
                 .append(renderTracker.capacity());
