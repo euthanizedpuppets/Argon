@@ -1,54 +1,56 @@
-# Argon Minecraft 26.2 — queue cleanup validation
+# Argon 0.1.4 — CPU hotspot profiling test plan
 
-The user has confirmed that the 26.2 build starts, `/argon status` works, and normal shutdown completes. This candidate includes chunk-pipeline timings and the bundled mod icon. The latest cleanup test inspected 405 entries over 10 scans but removed only 4; scan time averaged 5.85 ms with a 35.16 ms maximum, so start with cleanup disabled for the next baseline run. No performance gain is claimed.
+## Install safely
 
-## Before installing
+1. Use a separate Minecraft 26.2 Fabric instance with Java 25, Fabric Loader 0.19.5+, and Fabric API 0.161.0+26.2.
+2. Back up important worlds and use a disposable test world.
+3. Download only `argon-mc26.2-0.1.4.jar` from the latest successful workflow run on `support/minecraft-26.2`.
+4. Put the JAR in the instance's `mods` directory.
 
-1. Use a separate Minecraft 26.2 Fabric instance with Java 25, Fabric Loader 0.19.5, and Fabric API 0.161.0+26.2.
-2. Back up any world you care about. Prefer a temporary test world for the first launch.
-3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.3`.
-4. Extract the ZIP and place only `argon-mc26.2-0.1.3.jar` in that instance's `mods` directory. Close Minecraft before adding it.
-5. Start with no other performance mods where practical, so a crash or behavior change is easier to isolate.
+## Enable diagnostic probes
 
-## Test A — default settings
-
-Do not create or edit the config before the first run. Argon creates `config/argon.properties` with safe defaults, including:
+Close Minecraft and update `config/argon.properties`:
 
 ```properties
 telemetry.enabled=true
-chunks.scheduler.enabled=false
-renderer.experimental.enabled=false
-chunks.queue.capacity=256
-performance.frame-window=240
+performance.gui-intersection.enabled=true
+chunks.generation-profiling.enabled=true
 chunks.cancelled-task-cleanup.enabled=false
+renderer.experimental.enabled=false
 ```
 
-Launch the game, reach the title screen, and enter a disposable world. Run:
+Restart the client so the settings take effect.
+
+## Test A — generation in unexplored terrain
+
+Enter a fresh or previously unexplored area and travel for 2–3 minutes. Reproduce the usual chunk-generation bursts, then run:
 
 ```text
 /argon status
 ```
 
-The new build now reports `Section-task queue wait`, `Section mesh compile`, and `Terrain upload-pass` samples. Capture `/argon status` after the world has been open and you have moved enough to trigger a steady stream of chunk rebuilds. First verify the new native queue counters appear and change while moving around. `Native chunk queue depth current/peak` shows pending queue pressure, while additions, poll calls, successful poll returns, and clears are session totals. Confirm the world-pass sample count grows while the world is rendering. In single-player, confirm the integrated server tick-work sample count also grows. The cleanup feature should report `CANCELLED_CHUNK_TASK_CLEANUP: DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
+Record:
+- Completed noise fills and cumulative CPU wall time.
+- Noise-fill average/P50/P95/max and the all-time maximum.
+- Worker-thread call counts.
+- Queue-wait P95 and mesh-compile P95 for context.
+- Whether terrain arrives in bursts or steadily.
 
-## Test B — opt-in queue cleanup
+The probe measures only `NoiseBasedChunkGenerator.doFill`; it does not capture the whole chunk-status pipeline, biome selection, decoration, lighting, storage, or time waiting for other stages.
 
-For the most isolated test, run Test A first and confirm the new queue metrics work with cleanup disabled. Since the previous 0.1.0 default-settings run already passed in your environment, you can proceed directly to this cleanup test in a disposable world; if anything fails, repeat once with cleanup disabled to isolate the cause. Close Minecraft and back up the generated config. Change just this setting:
+## Test B — GUI intersection work and village load
 
-```properties
-chunks.cancelled-task-cleanup.enabled=true
-```
+Travel to the village where you saw severe tick spikes, let the area settle briefly, then run `/argon status`. Record:
+- GUI intersection call / hit counts.
+- Candidate-list total and maximum size.
+- Candidate list rolling average/P50/P95/max.
+- `hasIntersection` rolling CPU time average/P50/P95/max.
+- Integrated-server tick-work P95/max and world-pass interval P95.
 
-Restart and confirm `/argon status` says `CANCELLED_CHUNK_TASK_CLEANUP: ACTIVE`. In a disposable world, move quickly across chunk boundaries, rotate the camera through dense terrain, and revisit areas likely to trigger chunk rebuilds. Watch for startup crashes, missing chunks, visual corruption, severe stutters, or console errors.
+GUI measurements can include HUD and screen extraction from the entire session. The candidate-list size records the list supplied to vanilla, not the exact number of list entries visited before a method returns.
 
-This test is specifically for the opt-in cleanup path. Enable it only in a disposable world. If queue cleanups happen, `/argon status` reports scan count, entries inspected/pruned, and average/maximum scan duration. These counters help us assess the added overhead; seeing a positive prune count does not itself prove an FPS benefit.
+## Isolate overhead
 
-If anything unusual occurs, close the game and set the option back to `false` before another launch. This setting is opt-in because it has passed CI but has not yet been validated in a real 26.2 client.
+Both probes are disabled by default. For final performance comparisons use a separate run with both profiling settings disabled (or `telemetry.enabled=false`). Do not use an instrumented run as a clean FPS benchmark. If the numbers show a clear hotspot, repeat with only that probe enabled to check that it remains prominent.
 
-## What to report back
-
-Share whether the title screen and world loaded, whether `/argon status` worked, whether the selected graphics backend starts, and any crash or Mixin errors from `logs/latest.log`. The integrated tick-work min/average/max and P50/P95 may help show whether single-player tick processing is itself slow. Those values do not measure remote multiplayer servers, wall-clock tick scheduling delay, or world-save time during shutdown.
-
-For diagnosing delayed terrain, share the queue-wait P50/P95, mesh-compile P50/P95/max, upload-method CPU-time P50/P95/max, and integrated tick-work P95/max. Long queue wait suggests tasks are waiting their turn; long compile duration points at mesh-generation work; long upload method time points at render-thread buffer integration. A low value in all three points us toward upstream chunk availability/generation or other missing stages. For the cleanup test, share cleanup scan duration and any repeatable change in chunk stutter. The P50/P95 render values measure intervals between world-render callbacks; they are not GPU timings or a guaranteed FPS measurement. Compare the same view and movement route before interpreting differences.
-
-Do not use a valuable world or server for the first test. If saving or exiting hangs, preserve `logs/latest.log` and any crash report before force-closing so we can diagnose it.
+If the game crashes or reports a Mixin error, save `logs/latest.log` and disable the relevant setting before trying again. Do not use a valuable world for first tests.
