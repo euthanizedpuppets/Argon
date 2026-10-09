@@ -6,7 +6,8 @@
     "SectionTaskCancellationAccessor",
     "SectionTaskDynamicQueueMixin",
     "SectionCompileTaskMixin",
-    "SectionRenderDispatcherMixin"
+    "SectionRenderDispatcherMixin",
+    "ChunkSectionsToRenderMixin"
   ],
   "injectors": {
     "defaultRequire": 1
