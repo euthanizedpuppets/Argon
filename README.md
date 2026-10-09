@@ -4,7 +4,7 @@ This branch targets Minecraft Java Edition **26.2** on Fabric. It remains isolat
 
 ## Cloud build
 
-GitHub Actions uses Java 25 and Gradle 9.6.0. The current artifact is `argon-mc26.2-0.1.4.jar`.
+GitHub Actions uses Java 25 and Gradle 9.6.0. The current artifact is `argon-mc26.2-0.1.5.jar`.
 
 ## Install requirements
 
@@ -15,7 +15,7 @@ GitHub Actions uses Java 25 and Gradle 9.6.0. The current artifact is `argon-mc2
 
 Use a separate Fabric instance and a disposable world for diagnosis. Back up important worlds first.
 
-## New in 0.1.4: opt-in CPU hotspot probes
+## 0.1.5: correct Minecraft 26.2 noise-fill Mixin signature
 
 Argon's latest JFR capture showed two concrete leads, so this build adds diagnostic-only instrumentation for:
 
@@ -23,6 +23,10 @@ Argon's latest JFR capture showed two concrete leads, so this build adds diagnos
 - `NoiseBasedChunkGenerator.doFill`: completed fill count, cumulative time, recent average/P50/P95/max, all-time maximum, and worker-thread call counts.
 
 These probes do **not** change GUI intersections, world-generation math, chunk scheduling, rendering, or game state. Their config switches default to false. They collect data only when local telemetry is also enabled.
+
+## Why 0.1.5 exists
+
+Argon 0.1.4 could crash during Minecraft bootstrap because its noise-fill Mixin handler used an outdated parameter list. Minecraft 26.2's `NoiseBasedChunkGenerator.doFill` requires `Blender`, `StructureManager`, `RandomState`, `ChunkAccess`, two integers, and a `CallbackInfoReturnable`. Version 0.1.5 corrects both HEAD and RETURN hooks and strengthens the build-time signature check. The prior 0.1.4 JAR should not be used.
 
 ## Enable the probes
 
