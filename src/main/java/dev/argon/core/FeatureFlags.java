@@ -4,32 +4,60 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Minimal in-memory feature flag registry for the bootstrap.
- * A flag is not proof that a feature has been implemented or is available.
+ * In-memory feature registry. A requested flag never activates a feature until
+ * a runtime-compatible implementation has explicitly registered availability.
  */
 public final class FeatureFlags {
-    private static final Map<ArgonFeature, Boolean> ENABLED =
+    public enum Status {
+        UNAVAILABLE,
+        DISABLED,
+        ACTIVE
+    }
+
+    private static final Map<ArgonFeature, Boolean> REQUESTED =
+            new EnumMap<>(ArgonFeature.class);
+    private static final Map<ArgonFeature, Boolean> AVAILABLE =
             new EnumMap<>(ArgonFeature.class);
 
     private FeatureFlags() {
     }
 
     public static synchronized void initializeDefaults() {
-        ENABLED.clear();
+        REQUESTED.clear();
+        AVAILABLE.clear();
         for (ArgonFeature feature : ArgonFeature.values()) {
-            ENABLED.put(feature, false);
+            REQUESTED.put(feature, false);
+            AVAILABLE.put(feature, false);
         }
     }
 
+    /** True only when a feature was requested and an implementation is available. */
     public static synchronized boolean isEnabled(ArgonFeature feature) {
-        return ENABLED.getOrDefault(feature, false);
+        return isRequested(feature) && isAvailable(feature);
     }
 
-    /**
-     * Sets a requested flag. Callers must still verify that the implementation
-     * is registered and safe for the current runtime.
-     */
+    public static synchronized boolean isRequested(ArgonFeature feature) {
+        return REQUESTED.getOrDefault(feature, false);
+    }
+
+    public static synchronized boolean isAvailable(ArgonFeature feature) {
+        return AVAILABLE.getOrDefault(feature, false);
+    }
+
+    public static synchronized Status status(ArgonFeature feature) {
+        if (!isAvailable(feature)) {
+            return Status.UNAVAILABLE;
+        }
+        return isRequested(feature) ? Status.ACTIVE : Status.DISABLED;
+    }
+
+    /** Records user/config intent; it does not bypass availability checks. */
     public static synchronized void setEnabled(ArgonFeature feature, boolean enabled) {
-        ENABLED.put(feature, enabled);
+        REQUESTED.put(feature, enabled);
+    }
+
+    /** Called only after a compatible implementation has initialized successfully. */
+    public static synchronized void markAvailable(ArgonFeature feature, boolean available) {
+        AVAILABLE.put(feature, available);
     }
 }
