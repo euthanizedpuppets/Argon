@@ -35,7 +35,7 @@ jobs:
           jfr summary test/argon-village.jfr | tee jfr-summary.txt
           echo
           echo "=== Export selected events to JSON ==="
-          jfr print --json --events jdk.ExecutionSample,jdk.NativeMethodSample,jdk.ThreadCPULoad,jdk.CPULoad,jdk.ObjectAllocationSample,jdk.GCHeapSummary,jdk.GCPhasePause,jdk.GarbageCollection,jdk.JavaMonitorEnter,jdk.ThreadPark,jdk.FileRead,jdk.SocketRead test/argon-village.jfr > jfr-events.json
+          jfr print --json --events jdk.ExecutionSample,jdk.NativeMethodSample,jdk.ThreadCPULoad,jdk.CPULoad,jdk.ObjectAllocationSample,jdk.GCHeapSummary,jdk.GCPhasePause,jdk.GarbageCollection,jdk.JavaMonitorEnter,jdk.ThreadPark,jdk.FileRead,jdk.SocketRead,jdk.JavaExceptionThrow,jdk.JavaErrorThrow test/argon-village.jfr > jfr-events.json
           python3 - <<'PY'
           import collections
           import datetime
@@ -60,6 +60,10 @@ jobs:
           pause_durations = []
           gc_collections = []
           waits = []
+          exceptions = collections.Counter()
+          exception_messages = collections.Counter()
+          exception_sites = collections.Counter()
+          exception_stacks = collections.Counter()
           timed_java_samples = []
           start_times = []
 
@@ -131,9 +135,23 @@ jobs:
                       alloc_weight[name] += weight
               elif typ == "jdk.ThreadCPULoad":
                   thread = thread_name(values)
-                  total = values.get("total")
-                  if isinstance(total, (int, float)):
-                      cpu_load[thread].append(total * 100.0)
+                  user = values.get("user", 0)
+                  system = values.get("system", 0)
+                  if isinstance(user, (int, float)) and isinstance(system, (int, float)):
+                      cpu_load[thread].append((user + system) * 100.0)
+              elif typ in ("jdk.JavaExceptionThrow", "jdk.JavaErrorThrow"):
+                  thrown = values.get("thrownClass")
+                  name = thrown.get("name", "?") if isinstance(thrown, dict) else str(thrown or "?")
+                  exceptions[(typ, name)] += 1
+                  message = values.get("message")
+                  if message:
+                      exception_messages[(typ, name, str(message)[:180])] += 1
+                  trace = values.get("stackTrace") or {}
+                  frames = trace.get("frames", []) if isinstance(trace, dict) else []
+                  names = [method_name(frame) for frame in frames if isinstance(frame, dict)]
+                  if names:
+                      exception_sites[(typ, name, names[0])] += 1
+                      exception_stacks[(typ, name, " -> ".join(names[:6]))] += 1
               elif typ == "jdk.GCPhasePause":
                   d = duration_seconds(values.get("duration"))
                   if d is not None:
@@ -163,7 +181,10 @@ jobs:
           print("=== Recording analysis ===")
           print(f"Events decoded: {len(events)}")
           print(f"Sample event time range: {min(start_times) if start_times else 'unknown'} to {max(start_times) if start_times else 'unknown'}")
-          show("All event counts", counts, 40)
+          show("All event counts", counts, 45)
+          show("Thrown exception/error classes", collections.Counter({f"{k[0]} {k[1]}": v for k, v in exceptions.items()}), 30)
+          show("Frequent exception/error throw sites", collections.Counter({f"{k[0]} {k[1]} at {k[2]}": v for k, v in exception_sites.items()}), 30)
+          show("Frequent exception/error messages", collections.Counter({f"{k[0]} {k[1]}: {k[2]}": v for k, v in exception_messages.items()}), 25)
           show("Java execution samples by thread (CPU stack samples)", java_threads, 30)
           show("Java execution sample leaf methods (not exact CPU percent)", java_leaf, 35)
           show("Java methods appearing in sampled stacks (inclusive indicator)", java_inclusive, 40)
