@@ -13,16 +13,20 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Client entry point. The bootstrap collects render-interval diagnostics but
- * does not replace Minecraft's chunk scheduler or renderer.
+ * Client entry point. The bootstrap collects render-interval diagnostics and
+ * optionally performs conservative cleanup of already-cancelled native chunk
+ * tasks; it does not replace Minecraft's scheduler or renderer.
  */
 public final class ArgonClient implements ClientModInitializer {
     public static final String MOD_ID = "argon";
     public static final Logger LOGGER = Logger.getLogger(MOD_ID);
+
+    private static final AtomicLong CANCELLED_CHUNK_TASKS_PRUNED = new AtomicLong();
 
     private static ArgonConfig config = ArgonConfig.defaults();
     private static FrameTimeTracker frameTimes = new FrameTimeTracker(
@@ -41,15 +45,26 @@ public final class ArgonClient implements ClientModInitializer {
 
     /**
      * Exposes the bounded scheduling primitive for future integration.
-     * It is not connected to Minecraft chunk rebuilds in this bootstrap.
+     * This queue is not the native Minecraft chunk task queue.
      */
     public static BoundedPriorityTaskQueue<String, Runnable> chunkQueue() {
         return chunkQueue;
     }
 
+    public static void recordCancelledChunkTasksPruned(int count) {
+        if (count > 0) {
+            CANCELLED_CHUNK_TASKS_PRUNED.addAndGet(count);
+        }
+    }
+
+    public static long cancelledChunkTasksPruned() {
+        return CANCELLED_CHUNK_TASKS_PRUNED.get();
+    }
+
     @Override
     public void onInitializeClient() {
         FeatureFlags.initializeDefaults();
+        CANCELLED_CHUNK_TASKS_PRUNED.set(0L);
 
         Path configPath = FabricLoader.getInstance()
                 .getConfigDir()
@@ -71,6 +86,11 @@ public final class ArgonClient implements ClientModInitializer {
         FeatureFlags.setEnabled(
                 ArgonFeature.EXPERIMENTAL_RENDERER, config.experimentalRendererEnabled());
 
+        // The required, version-pinned mixin is part of this client implementation.
+        FeatureFlags.markAvailable(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP, true);
+        FeatureFlags.setEnabled(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP,
+                config.cancelledChunkTaskCleanupEnabled());
+
         frameTimes = new FrameTimeTracker(config.frameSampleWindow());
         frameTimeMonitor = new FrameTimeMonitor(frameTimes);
         frameTimeMonitor.reset();
@@ -82,7 +102,9 @@ public final class ArgonClient implements ClientModInitializer {
         ArgonCommands.register();
 
         LOGGER.info(() -> "Argon 0.1 initialized. "
-                + "Experimental renderer status: "
+                + "Cancelled chunk-task cleanup: "
+                + FeatureFlags.status(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP)
+                + "; experimental renderer status: "
                 + FeatureFlags.status(ArgonFeature.EXPERIMENTAL_RENDERER)
                 + "; chunk scheduler status: "
                 + FeatureFlags.status(ArgonFeature.CHUNK_PRIORITY_SCHEDULING)

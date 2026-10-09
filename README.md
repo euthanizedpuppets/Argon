@@ -2,7 +2,7 @@
 
 Argon is a Java-first performance optimization mod for Minecraft Java Edition 26.3 on Fabric.
 
-The goal is to improve rendering overhead, chunk rebuild scheduling, memory allocation pressure, and frame pacing while preserving gameplay correctness. Experimental renderer work remains opt-in until correctness, performance, and compatibility are demonstrated.
+The goal is to improve rendering overhead, chunk rebuild scheduling, memory allocation pressure, and frame pacing while preserving gameplay correctness. Experimental changes remain opt-in until correctness, performance, and compatibility are demonstrated.
 
 ## Cloud builds
 
@@ -11,18 +11,13 @@ Compilation and tests run in GitHub Actions so contributors do not need to compi
 ## Current scope
 
 - Fabric client bootstrap and safe configuration loading
-- /argon status client-side diagnostic command
-- World-pass interval sampling from Minecraft 26.3's Fabric LevelRenderEvents.END_MAIN event
-- Conservative feature flags that do not mark placeholder optimizations active
-- Bounded chunk-work queue and rolling frame-time statistics (the queue is not yet wired into Minecraft's chunk scheduler)
-- GitHub Actions compilation, tests, and artifact upload
+- `/argon status` client-side diagnostic command
+- World-pass interval sampling from Minecraft 26.3's Fabric `LevelRenderEvents.END_MAIN` event
+- Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue
+- Conservative feature flags, bounded queue primitives, rolling frame-time statistics, and GitHub Actions tests/artifact upload
 
-The world-pass interval is a diagnostic estimate, not a GPU timestamp or guaranteed FPS measurement. Chunk scheduling changes, memory pools, adaptive budgets, and a replacement renderer are not implemented yet. They will be added only after a baseline is measurable.
+Native queue cleanup is disabled by default through `chunks.cancelled-task-cleanup.enabled=false`. When enabled, it removes cancelled entries before new tasks are appended, periodically and only above a queue-size threshold. It does not replace vanilla's camera-distance prioritization, task quota, worker, or buffer lifecycle. Its compatibility and performance still require in-game validation; no FPS gain is claimed.
 
-## OpenGL and Vulkan
+World-pass intervals are a diagnostic estimate, not a GPU timestamp or guaranteed FPS measurement. A custom Vulkan renderer, wholesale replacement chunk scheduler, memory pools, and adaptive budgets are not implemented.
 
-Argon targets Minecraft's supported graphics backends, including OpenGL and Vulkan where supported by the selected game release and runtime. Shared code should use Minecraft rendering abstractions rather than raw backend-specific calls.
-
-A custom Vulkan renderer is not part of the bootstrap. Experimental backend-specific work must be isolated, feature-gated, and validated independently.
-
-A green build proves compilation, not FPS gains. See docs/ARCHITECTURE.md and docs/PERFORMANCE_METHODOLOGY.md.
+A green build proves compilation and unit tests, not actual in-game compatibility or FPS gains. See docs/ARCHITECTURE.md and docs/PERFORMANCE_METHODOLOGY.md.

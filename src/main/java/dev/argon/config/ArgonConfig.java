@@ -22,13 +22,29 @@ public final class ArgonConfig {
     private final boolean experimentalRendererEnabled;
     private final int maxQueuedChunkTasks;
     private final int frameSampleWindow;
+    private final boolean cancelledChunkTaskCleanupEnabled;
 
+    /**
+     * Compatibility constructor: experimental chunk cleanup remains disabled
+     * unless the caller explicitly opts in through the full constructor.
+     */
     public ArgonConfig(
             boolean telemetryEnabled,
             boolean chunkSchedulerEnabled,
             boolean experimentalRendererEnabled,
             int maxQueuedChunkTasks,
             int frameSampleWindow) {
+        this(telemetryEnabled, chunkSchedulerEnabled, experimentalRendererEnabled,
+                maxQueuedChunkTasks, frameSampleWindow, false);
+    }
+
+    public ArgonConfig(
+            boolean telemetryEnabled,
+            boolean chunkSchedulerEnabled,
+            boolean experimentalRendererEnabled,
+            int maxQueuedChunkTasks,
+            int frameSampleWindow,
+            boolean cancelledChunkTaskCleanupEnabled) {
         this.telemetryEnabled = telemetryEnabled;
         this.chunkSchedulerEnabled = chunkSchedulerEnabled;
         this.experimentalRendererEnabled = experimentalRendererEnabled;
@@ -36,10 +52,11 @@ public final class ArgonConfig {
                 maxQueuedChunkTasks, MIN_QUEUE_CAPACITY, MAX_QUEUE_CAPACITY);
         this.frameSampleWindow = clamp(
                 frameSampleWindow, MIN_FRAME_WINDOW, MAX_FRAME_WINDOW);
+        this.cancelledChunkTaskCleanupEnabled = cancelledChunkTaskCleanupEnabled;
     }
 
     public static ArgonConfig defaults() {
-        return new ArgonConfig(true, false, false, 256, 240);
+        return new ArgonConfig(true, false, false, 256, 240, false);
     }
 
     public boolean telemetryEnabled() {
@@ -62,6 +79,10 @@ public final class ArgonConfig {
         return frameSampleWindow;
     }
 
+    public boolean cancelledChunkTaskCleanupEnabled() {
+        return cancelledChunkTaskCleanupEnabled;
+    }
+
     public static ArgonConfig load(Path file) throws IOException {
         ArgonConfig defaults = defaults();
         if (!Files.exists(file)) {
@@ -82,7 +103,9 @@ public final class ArgonConfig {
                 readBoolean(properties, "renderer.experimental.enabled",
                         defaults.experimentalRendererEnabled),
                 readInt(properties, "chunks.queue.capacity", defaults.maxQueuedChunkTasks),
-                readInt(properties, "performance.frame-window", defaults.frameSampleWindow));
+                readInt(properties, "performance.frame-window", defaults.frameSampleWindow),
+                readBoolean(properties, "chunks.cancelled-task-cleanup.enabled",
+                        defaults.cancelledChunkTaskCleanupEnabled));
     }
 
     public void save(Path file) throws IOException {
@@ -98,9 +121,12 @@ public final class ArgonConfig {
                 Boolean.toString(experimentalRendererEnabled));
         properties.setProperty("chunks.queue.capacity", Integer.toString(maxQueuedChunkTasks));
         properties.setProperty("performance.frame-window", Integer.toString(frameSampleWindow));
+        properties.setProperty("chunks.cancelled-task-cleanup.enabled",
+                Boolean.toString(cancelledChunkTaskCleanupEnabled));
 
         try (OutputStream output = Files.newOutputStream(file)) {
-            properties.store(output, "Argon configuration. Restart the client after changing renderer flags.");
+            properties.store(output,
+                    "Argon configuration. Experimental cleanup is disabled by default.");
         }
     }
 

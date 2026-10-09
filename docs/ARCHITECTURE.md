@@ -22,11 +22,13 @@ The client registers Fabric's LevelRenderEvents.END_MAIN event at the end of Min
 
 This is a low-cost diagnostic estimate of world-render-pass interval, not a GPU timestamp, presentation timestamp, or definitive FPS counter. It samples only while this render event runs. Duplicate/backward timestamps and gaps longer than five seconds are ignored so pauses do not pollute the rolling window. The first callback only establishes a baseline.
 
-## Chunk scheduling investigation
+## Cancelled chunk-task cleanup
 
-Minecraft 26.3 already uses SectionTaskDynamicQueue in SectionRenderDispatcher. Its existing selector removes cancelled tasks while polling, prioritizes tasks by camera distance, and reserves a quota for recompiles versus initial compilation. Any Argon integration must preserve those vanilla correctness and fairness properties unless repeatable measurements justify changing them.
+Minecraft 26.3's SectionTaskDynamicQueue already removes cancelled tasks while polling, prioritizes candidates by camera distance, and enforces a quota between initial compilation and recompilation. Argon does not replace that queue or alter the poll algorithm.
 
-The Argon bounded queue remains a pure-Java scheduling primitive and is not connected to the native chunk task queue. Do not enqueue vanilla SectionTask objects into an independent worker pool: they carry world/section and buffer lifecycle requirements that must remain under Minecraft's dispatch ownership. The next chunk step is a narrow, version-specific adapter or a measured queue-cleanup patch, tested against 26.3 before it is marked available.
+When the opt-in `chunks.cancelled-task-cleanup.enabled=true` setting is enabled, a client-only Mixin checks the native queue before new tasks are appended. If at least 32 tasks are queued, it runs a cleanup pass every 16 additions, removing entries whose vanilla cancellation flag is already set. Removing from the end preserves the order of surviving tasks. The original queue methods continue to own worker scheduling, task execution, and buffer lifecycle.
+
+This is an experimental queue-hygiene hook, not a proven FPS optimization. It is disabled by default and must be tested in an actual 26.3 client before being recommended for normal play. The diagnostic count records how many cancelled entries were removed early.
 
 ## OpenGL and Vulkan
 
@@ -47,7 +49,7 @@ The initial release does not implement a custom Vulkan renderer or force a backe
 
 ## Feature flags
 
-A flag is not proof that a feature is implemented. Diagnostics must distinguish unavailable, experimental, enabled, and active states. If optional feature initialization fails, disable it only when a safe fallback exists; do not silently swallow failures in core rendering code.
+A flag is not proof that a feature is beneficial. Diagnostics distinguish unavailable, disabled, and active implementations. A user opt-in does not bypass runtime availability checks.
 
 ## Compatibility
 

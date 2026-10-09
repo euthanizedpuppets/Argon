@@ -34,7 +34,11 @@ public final class ArgonCommands {
                 .append(ArgonClient.config().chunkSchedulerEnabled())
                 .append("\nExperimental renderer requested: ")
                 .append(ArgonClient.config().experimentalRendererEnabled())
-                .append("\nQueued chunk tasks: ")
+                .append("\nCancelled-task cleanup enabled: ")
+                .append(ArgonClient.config().cancelledChunkTaskCleanupEnabled())
+                .append("\nNative cancelled tasks pruned: ")
+                .append(ArgonClient.cancelledChunkTasksPruned())
+                .append("\nArgon utility queue: ")
                 .append(ArgonClient.chunkQueue().size())
                 .append('/')
                 .append(ArgonClient.chunkQueue().capacity())
@@ -57,8 +61,8 @@ public final class ArgonCommands {
                     .append(FeatureFlags.status(feature));
         }
 
-        report.append("\nIntervals are measured at the end of the main world render pass; "
-                + "they are not GPU timings or a guaranteed FPS measurement.");
+        report.append("\nWorld-pass intervals are not GPU timings or a guaranteed FPS measurement.");
+        report.append("\nNative queue cleanup removes cancelled entries only; vanilla task ordering is retained.");
         return report.toString();
     }
 }

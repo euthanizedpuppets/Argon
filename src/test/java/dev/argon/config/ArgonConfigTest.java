@@ -20,6 +20,7 @@ final class ArgonConfigTest {
         assertTrue(config.telemetryEnabled());
         assertFalse(config.chunkSchedulerEnabled());
         assertFalse(config.experimentalRendererEnabled());
+        assertFalse(config.cancelledChunkTaskCleanupEnabled());
         assertEquals(256, config.maxQueuedChunkTasks());
         assertEquals(240, config.frameSampleWindow());
     }
@@ -27,7 +28,7 @@ final class ArgonConfigTest {
     @Test
     void saveAndLoadRoundTrip() throws IOException {
         Path file = temporaryDirectory.resolve("nested/argon.properties");
-        ArgonConfig expected = new ArgonConfig(true, true, false, 512, 300);
+        ArgonConfig expected = new ArgonConfig(true, true, false, 512, 300, true);
 
         expected.save(file);
         ArgonConfig actual = ArgonConfig.load(file);
@@ -35,6 +36,7 @@ final class ArgonConfigTest {
         assertTrue(actual.telemetryEnabled());
         assertTrue(actual.chunkSchedulerEnabled());
         assertFalse(actual.experimentalRendererEnabled());
+        assertTrue(actual.cancelledChunkTaskCleanupEnabled());
         assertEquals(512, actual.maxQueuedChunkTasks());
         assertEquals(300, actual.frameSampleWindow());
     }
@@ -48,12 +50,14 @@ final class ArgonConfigTest {
                 renderer.experimental.enabled=false
                 chunks.queue.capacity=999999
                 performance.frame-window=not-a-number
+                chunks.cancelled-task-cleanup.enabled=maybe
                 """);
 
         ArgonConfig config = ArgonConfig.load(file);
 
         assertTrue(config.telemetryEnabled());
         assertTrue(config.chunkSchedulerEnabled());
+        assertFalse(config.cancelledChunkTaskCleanupEnabled());
         assertEquals(ArgonConfig.MAX_QUEUE_CAPACITY, config.maxQueuedChunkTasks());
         assertEquals(ArgonConfig.defaults().frameSampleWindow(), config.frameSampleWindow());
     }
@@ -68,11 +72,13 @@ final class ArgonConfigTest {
         assertEquals(ArgonConfig.defaults().telemetryEnabled(), config.telemetryEnabled());
         assertEquals(ArgonConfig.defaults().chunkSchedulerEnabled(), config.chunkSchedulerEnabled());
         assertEquals(ArgonConfig.defaults().maxQueuedChunkTasks(), config.maxQueuedChunkTasks());
+        assertFalse(config.cancelledChunkTaskCleanupEnabled());
     }
 
     @Test
     void missingFileReturnsDefaults() throws IOException {
         ArgonConfig config = ArgonConfig.load(temporaryDirectory.resolve("missing.properties"));
         assertFalse(config.experimentalRendererEnabled());
+        assertFalse(config.cancelledChunkTaskCleanupEnabled());
     }
 }

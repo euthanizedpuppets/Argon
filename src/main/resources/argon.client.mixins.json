@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "dev.argon.mixin.chunk",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "SectionTaskCancellationAccessor",
+    "SectionTaskDynamicQueueMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
