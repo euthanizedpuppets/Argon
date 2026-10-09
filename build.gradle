@@ -129,6 +129,24 @@ tasks.register("verifyArgonMixinConfiguration") {
                     "Native chunk queue Mixin target or instrumentation hook changed; review before packaging.")
         }
 
+        def guiMixin = file("src/main/java/dev/argon/mixin/chunk/GuiRenderStateMixin.java")
+                .getText("UTF-8")
+        if (!guiMixin.contains("@Mixin(GuiRenderState.class)")
+                || !guiMixin.contains('@Inject(method = "hasIntersection", at = @At("HEAD"))')
+                || !guiMixin.contains('@Inject(method = "hasIntersection", at = @At("RETURN"))')) {
+            throw new GradleException(
+                    "GUI intersection profiling target or timing hooks changed; review before packaging.")
+        }
+
+        def generationMixin = file("src/main/java/dev/argon/mixin/chunk/NoiseBasedChunkGeneratorMixin.java")
+                .getText("UTF-8")
+        if (!generationMixin.contains("@Mixin(NoiseBasedChunkGenerator.class)")
+                || !generationMixin.contains('@Inject(method = "doFill", at = @At("HEAD"))')
+                || !generationMixin.contains('@Inject(method = "doFill", at = @At("RETURN"))')) {
+            throw new GradleException(
+                    "Noise chunk generation profiling target or timing hooks changed; review before packaging.")
+        }
+
         def compileTaskMixin = file("src/main/java/dev/argon/mixin/chunk/SectionCompileTaskMixin.java")
                 .getText("UTF-8")
         def dispatcherMixin = file("src/main/java/dev/argon/mixin/chunk/SectionRenderDispatcherMixin.java")
