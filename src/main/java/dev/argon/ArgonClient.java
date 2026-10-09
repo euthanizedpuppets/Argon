@@ -1,6 +1,7 @@
 package dev.argon;
 
 import dev.argon.chunks.BoundedPriorityTaskQueue;
+import dev.argon.chunks.ChunkBuildMetrics;
 import dev.argon.chunks.ChunkCleanupMetrics;
 import dev.argon.chunks.NativeChunkQueueMetrics;
 import dev.argon.config.ArgonConfig;
@@ -33,6 +34,9 @@ public final class ArgonClient implements ClientModInitializer {
     private static final NativeChunkQueueMetrics NATIVE_CHUNK_QUEUE_METRICS =
             new NativeChunkQueueMetrics();
 
+    private static ChunkBuildMetrics CHUNK_BUILD_METRICS =
+            new ChunkBuildMetrics(ArgonConfig.defaults().frameSampleWindow());
+
     private static ArgonConfig config = ArgonConfig.defaults();
     private static FrameTimeTracker frameTimes = new FrameTimeTracker(
             ArgonConfig.defaults().frameSampleWindow());
@@ -64,21 +68,43 @@ public final class ArgonClient implements ClientModInitializer {
         return NATIVE_CHUNK_QUEUE_METRICS;
     }
 
-    public static void recordNativeChunkQueueAdd(int depth) {
+    public static ChunkBuildMetrics chunkBuildMetrics() {
+        return CHUNK_BUILD_METRICS;
+    }
+
+    public static void recordNativeChunkQueueAdd(Object task, int depth) {
         if (config.telemetryEnabled()) {
             NATIVE_CHUNK_QUEUE_METRICS.recordAdd(depth);
+            CHUNK_BUILD_METRICS.recordEnqueued(task, System.nanoTime());
         }
     }
 
-    public static void recordNativeChunkQueuePoll(boolean taskReturned, int depth) {
+    public static void recordNativeChunkQueuePoll(
+            Object task, boolean taskReturned, int depth) {
         if (config.telemetryEnabled()) {
             NATIVE_CHUNK_QUEUE_METRICS.recordPoll(taskReturned, depth);
+            if (taskReturned) {
+                CHUNK_BUILD_METRICS.recordDequeued(task, System.nanoTime());
+            }
         }
     }
 
     public static void recordNativeChunkQueueClear(int entriesCleared) {
         if (config.telemetryEnabled()) {
             NATIVE_CHUNK_QUEUE_METRICS.recordClear(entriesCleared);
+            CHUNK_BUILD_METRICS.clearPendingTasks();
+        }
+    }
+
+    public static void recordSectionCompileDuration(long durationNanos) {
+        if (config.telemetryEnabled()) {
+            CHUNK_BUILD_METRICS.recordCompileDuration(durationNanos);
+        }
+    }
+
+    public static void recordTerrainUploadPassDuration(long durationNanos) {
+        if (config.telemetryEnabled()) {
+            CHUNK_BUILD_METRICS.recordUploadPassDuration(durationNanos);
         }
     }
 
@@ -132,6 +158,7 @@ public final class ArgonClient implements ClientModInitializer {
         frameTimeMonitor.reset();
 
         integratedServerTickTimes = new FrameTimeTracker(config.frameSampleWindow());
+        CHUNK_BUILD_METRICS = new ChunkBuildMetrics(config.frameSampleWindow());
         serverTickMonitor = new ServerTickMonitor(integratedServerTickTimes);
         if (config.telemetryEnabled()) {
             FrameTimeMonitor activeFrameMonitor = frameTimeMonitor;
@@ -148,7 +175,7 @@ public final class ArgonClient implements ClientModInitializer {
 
         ArgonCommands.register();
 
-        LOGGER.info(() -> "Argon 0.1 initialized. "
+        LOGGER.info(() -> "Argon 0.1.2 initialized. "
                 + "Cancelled chunk-task cleanup: "
                 + FeatureFlags.status(ArgonFeature.CANCELLED_CHUNK_TASK_CLEANUP)
                 + "; experimental renderer status: "
