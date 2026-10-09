@@ -40,8 +40,114 @@ jobs:
           java -version
           gradle --version
 
+      - name: Inspect uploaded village JFR recording
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s test/argon-village.jfr
+          jfr summary test/argon-village.jfr | tee jfr-summary.txt
+          jfr print --json --events jdk.ExecutionSample,jdk.NativeMethodSample,jdk.ThreadCPULoad,jdk.GCPhasePause,jdk.GarbageCollection,jdk.JavaMonitorEnter,jdk.ThreadPark,jdk.FileRead,jdk.SocketRead test/argon-village.jfr > jfr-events.json
+          python3 - <<'PY'
+          import collections
+          import json
+          from pathlib import Path
+
+          root = json.loads(Path("jfr-events.json").read_text())
+          recording = root.get("recording", root)
+          events = recording.get("events", [])
+          counts = collections.Counter()
+          thread_counts = collections.Counter()
+          leaf_methods = collections.Counter()
+          inclusive_methods = collections.Counter()
+          thread_leaf = collections.defaultdict(collections.Counter)
+          sample_stacks = collections.Counter()
+          gc_events = []
+          wait_events = []
+
+          def method_name(frame):
+              method = frame.get("method") or {}
+              typ = method.get("type") or {}
+              return f"{typ.get('name', '?')}.{method.get('name', '?')}"
+
+          def get_thread(values):
+              for key in ("sampledThread", "eventThread", "thread"):
+                  value = values.get(key)
+                  if isinstance(value, dict):
+                      return value.get("javaName") or value.get("osName") or value.get("name") or "?"
+              return "?"
+
+          for event in events:
+              typ = event.get("type", "?")
+              counts[typ] += 1
+              values = event.get("values") or {}
+              if typ in ("jdk.ExecutionSample", "jdk.NativeMethodSample"):
+                  thread = get_thread(values)
+                  thread_counts[thread] += 1
+                  trace = values.get("stackTrace") or {}
+                  frames = trace.get("frames", []) if isinstance(trace, dict) else []
+                  names = [method_name(frame) for frame in frames if isinstance(frame, dict)]
+                  if names:
+                      leaf_methods[names[0]] += 1
+                      thread_leaf[thread][names[0]] += 1
+                      sample_stacks[" -> ".join(names[:7])] += 1
+                      inclusive_methods.update(set(names))
+              elif typ in ("jdk.GCPhasePause", "jdk.GarbageCollection") and len(gc_events) < 60:
+                  gc_events.append({
+                      "type": typ, "name": values.get("name"),
+                      "cause": values.get("cause"), "duration": values.get("duration"),
+                      "sumOfPauses": values.get("sumOfPauses"),
+                      "longestPause": values.get("longestPause")
+                  })
+              elif typ in ("jdk.JavaMonitorEnter", "jdk.ThreadPark") and len(wait_events) < 60:
+                  wait_events.append({
+                      "type": typ, "thread": get_thread(values),
+                      "duration": values.get("duration"),
+                      "monitorClass": values.get("monitorClass"),
+                      "parkedClass": values.get("parkedClass")
+                  })
+
+          def lines(counter, limit):
+              return "\\n".join(f"{name}: {count}" for name, count in counter.most_common(limit))
+
+          print("\\n=== Selected event counts ===\\n" + lines(counts, 40))
+          print("\\n=== Execution samples by thread ===\\n" + lines(thread_counts, 30))
+          print("\\n=== Frequent sampled leaf methods (sample counts, not exact CPU %) ===\\n" + lines(leaf_methods, 40))
+          print("\\n=== Methods appearing across sampled stacks ===\\n" + lines(inclusive_methods, 50))
+          for thread in ("Server thread", "Render thread"):
+              if thread_leaf.get(thread):
+                  print(f"\\n=== Frequent leaf methods: {thread} ===\\n" + lines(thread_leaf[thread], 25))
+          print("\\n=== Frequent sample stacks ===\\n" + lines(sample_stacks, 25))
+          print("\\n=== GC events ===")
+          for event in gc_events[:30]:
+              print(json.dumps(event, sort_keys=True))
+          print("\\n=== Monitor/park events ===")
+          for event in wait_events[:30]:
+              print(json.dumps(event, sort_keys=True))
+
+          summary = [
+              "Selected event counts", lines(counts, 100),
+              "Execution samples by thread", lines(thread_counts, 100),
+              "Frequent leaf methods", lines(leaf_methods, 120),
+              "Methods across sampled stacks", lines(inclusive_methods, 160),
+              "Frequent sample stacks", lines(sample_stacks, 80),
+              "GC events", "\\n".join(json.dumps(e, sort_keys=True) for e in gc_events),
+              "Monitor/park events", "\\n".join(json.dumps(e, sort_keys=True) for e in wait_events),
+          ]
+          Path("jfr-analysis-summary.txt").write_text("\\n\\n".join(summary))
+          PY
+
       - name: Compile, test, and package
         run: gradle --no-daemon clean test build
+
+      - name: Upload compact JFR analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: argon-jfr-analysis-summary
+          path: |
+            jfr-summary.txt
+            jfr-analysis-summary.txt
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Argon Minecraft 26.2 JAR
         uses: actions/upload-artifact@v4
