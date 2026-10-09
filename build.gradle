@@ -131,6 +131,15 @@ tasks.register("verifyArgonMixinConfiguration") {
 
         def compileTaskMixin = file("src/main/java/dev/argon/mixin/chunk/SectionCompileTaskMixin.java")
                 .getText("UTF-8")
+        def terrainObserverMixin = file("src/main/java/dev/argon/mixin/chunk/ChunkSectionsToRenderMixin.java")
+                .getText("UTF-8")
+        if (!terrainObserverMixin.contains("@Mixin(ChunkSectionsToRender.class)")
+                || !terrainObserverMixin.contains('@Inject(method = "renderGroup", at = @At("HEAD"))')
+                || !terrainObserverMixin.contains('@Inject(method = "renderGroup", at = @At("RETURN"))')) {
+            throw new GradleException(
+                    "Terrain render observer target or timing hook changed; review before packaging.")
+        }
+
         def dispatcherMixin = file("src/main/java/dev/argon/mixin/chunk/SectionRenderDispatcherMixin.java")
                 .getText("UTF-8")
 
