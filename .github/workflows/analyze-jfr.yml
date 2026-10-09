@@ -1,0 +1,170 @@
+name: Analyze uploaded Argon JFR recording
+
+on:
+  push:
+    branches: ["analysis/jfr-village"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Summarize JFR events and CPU samples
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out recording
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Validate and summarize recording
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s test/argon-village.jfr
+          echo "=== Recording file ==="
+          ls -lh test/argon-village.jfr
+          echo
+          echo "=== JFR event summary ==="
+          jfr summary test/argon-village.jfr | tee jfr-summary.txt
+          echo
+          echo "=== Export selected events to JSON ==="
+          jfr print --json --events jdk.ExecutionSample,jdk.NativeMethodSample,jdk.ThreadCPULoad,jdk.GCPhasePause,jdk.GarbageCollection,jdk.JavaMonitorEnter,jdk.ThreadPark,jdk.FileRead,jdk.SocketRead test/argon-village.jfr > jfr-events.json
+          python3 - <<'PY'
+          import collections
+          import json
+          from pathlib import Path
+
+          root = json.loads(Path("jfr-events.json").read_text())
+          recording = root.get("recording", root)
+          events = recording.get("events", [])
+          counts = collections.Counter()
+          thread_counts = collections.Counter()
+          leaf_methods = collections.Counter()
+          inclusive_methods = collections.Counter()
+          thread_leaf = collections.defaultdict(collections.Counter)
+          sample_stacks = collections.Counter()
+          lock_events = []
+          gc_events = []
+
+          def method_name(frame):
+              method = frame.get("method") or {}
+              typ = method.get("type") or {}
+              cls = typ.get("name") or typ.get("package") or "?"
+              name = method.get("name") or "?"
+              return f"{cls}.{name}"
+
+          def get_thread(values):
+              for key in ("sampledThread", "eventThread", "thread"):
+                  value = values.get(key)
+                  if isinstance(value, dict):
+                      return (value.get("javaName") or value.get("osName")
+                              or value.get("name") or "?")
+              return "?"
+
+          for event in events:
+              typ = event.get("type", "?")
+              counts[typ] += 1
+              values = event.get("values") or {}
+              if typ in ("jdk.ExecutionSample", "jdk.NativeMethodSample"):
+                  thread = get_thread(values)
+                  thread_counts[thread] += 1
+                  trace = values.get("stackTrace") or {}
+                  frames = trace.get("frames", []) if isinstance(trace, dict) else []
+                  names = [method_name(f) for f in frames if isinstance(f, dict)]
+                  if names:
+                      leaf_methods[names[0]] += 1
+                      thread_leaf[thread][names[0]] += 1
+                      sample_stacks[" -> ".join(names[:6])] += 1
+                      inclusive_methods.update(set(names))
+              elif typ in ("jdk.JavaMonitorEnter", "jdk.ThreadPark"):
+                  if len(lock_events) < 40:
+                      lock_events.append({
+                          "type": typ,
+                          "thread": get_thread(values),
+                          "duration": values.get("duration"),
+                          "monitorClass": (values.get("monitorClass") or {}).get("name")
+                              if isinstance(values.get("monitorClass"), dict)
+                              else values.get("monitorClass"),
+                          "parkedClass": values.get("parkedClass")
+                      })
+              elif typ in ("jdk.GCPhasePause", "jdk.GarbageCollection"):
+                  if len(gc_events) < 50:
+                      gc_events.append({
+                          "type": typ,
+                          "name": values.get("name"),
+                          "cause": values.get("cause"),
+                          "duration": values.get("duration"),
+                          "sumOfPauses": values.get("sumOfPauses"),
+                          "longestPause": values.get("longestPause")
+                      })
+
+          print("\n=== Selected event counts ===")
+          for name, count in counts.most_common():
+              print(f"{name}: {count}")
+
+          print("\n=== Execution samples by thread ===")
+          for name, count in thread_counts.most_common(20):
+              print(f"{count:5d}  {name}")
+
+          print("\n=== Most common sampled leaf methods (self/leaf indicator, not exact CPU percent) ===")
+          for name, count in leaf_methods.most_common(30):
+              print(f"{count:5d}  {name}")
+
+          print("\n=== Methods appearing most often across sampled stacks (inclusive indicator) ===")
+          for name, count in inclusive_methods.most_common(35):
+              print(f"{count:5d}  {name}")
+
+          for thread in ("Server thread", "Render thread"):
+              if thread_leaf.get(thread):
+                  print(f"\n=== Most common leaf methods on {thread} ===")
+                  for name, count in thread_leaf[thread].most_common(20):
+                      print(f"{count:5d}  {name}")
+
+          print("\n=== Most common sampled stack traces ===")
+          for stack, count in sample_stacks.most_common(15):
+              print(f"{count:5d}  {stack}")
+
+          print("\n=== First selected GC events (event fields depend on JDK event schema) ===")
+          for item in gc_events[:20]:
+              print(json.dumps(item, sort_keys=True))
+
+          print("\n=== First selected monitor/park events ===")
+          for item in lock_events[:20]:
+              print(json.dumps(item, sort_keys=True))
+
+          # Upload these compact summaries as text so we can inspect all values without
+          # transporting the binary JFR or dumping a massive stack-trace export.
+          Path("jfr-analysis-summary.txt").write_text(
+              "Selected event counts\n" +
+              "\n".join(f"{k}: {v}" for k, v in counts.most_common()) +
+              "\n\nExecution samples by thread\n" +
+              "\n".join(f"{k}: {v}" for k, v in thread_counts.most_common()) +
+              "\n\nLeaf methods\n" +
+              "\n".join(f"{k}: {v}" for k, v in leaf_methods.most_common(100)) +
+              "\n\nInclusive methods\n" +
+              "\n".join(f"{k}: {v}" for k, v in inclusive_methods.most_common(120)) +
+              "\n\nFrequent stacks\n" +
+              "\n".join(f"{k}: {v}" for k, v in sample_stacks.most_common(60)) +
+              "\n\nGC events\n" +
+              "\n".join(json.dumps(x, sort_keys=True) for x in gc_events) +
+              "\n\nMonitor/park events\n" +
+              "\n".join(json.dumps(x, sort_keys=True) for x in lock_events)
+          )
+          PY
+
+      - name: Upload compact JFR analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: argon-jfr-analysis-summary
+          path: |
+            jfr-summary.txt
+            jfr-analysis-summary.txt
+          if-no-files-found: error
+          retention-days: 14
