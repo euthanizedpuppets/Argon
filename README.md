@@ -1,10 +1,10 @@
-# Argon — Minecraft 26.2 test branch
+# Argon — Minecraft 26.2 performance diagnostics
 
-This branch targets Minecraft Java Edition **26.2** on Fabric so the client can be tested with the graphics backend options available to this game version. It is intentionally separate from the 26.3 development branch.
+This branch targets Minecraft Java Edition **26.2** on Fabric. It remains isolated from the 26.3 development branch.
 
 ## Cloud build
 
-GitHub Actions uses Java 25 and Gradle 9.6.0. A successful run uploads a single runtime JAR named `argon-mc26.2-0.1.3.jar`. Do not use the source JAR from other builds.
+GitHub Actions uses Java 25 and Gradle 9.6.0. The current artifact is `argon-mc26.2-0.1.4.jar`.
 
 ## Install requirements
 
@@ -13,26 +13,37 @@ GitHub Actions uses Java 25 and Gradle 9.6.0. A successful run uploads a single 
 - Fabric Loader 0.19.5 or newer
 - Fabric API 0.161.0+26.2 or newer for this game version
 
-Use a separate Fabric instance for testing. Back up worlds before testing any optimization mod.
+Use a separate Fabric instance and a disposable world for diagnosis. Back up important worlds first.
 
-## Current scope
+## New in 0.1.4: opt-in CPU hotspot probes
 
-- Safe config loading and the `/argon status` diagnostic command
-- World-render-pass interval samples through Fabric `LevelRenderEvents.END_MAIN`, disabled by `telemetry.enabled=false`
-- Integrated-server tick-work min/average/max/P50/P95 samples in single-player worlds
-- Min/average/max/P50/P95 render interval summaries
-- Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue
-- Stable linear compaction when pruning cancelled tasks from the native random-access queue
-- Optional-cleanup scan counts, entries inspected/pruned, and average/maximum scan-cost diagnostics
-- Native section-task queue add/poll/clear counters plus current and peak queue depth, collected only while local telemetry is enabled
-- Native section-task queue waiting time, section mesh compile duration, and CPU wall time spent inside terrain-buffer upload passes, collected only while local telemetry is enabled
-- Unit tests and a Gradle Mixin metadata/target declaration check
-- Bundled Argon mod icon referenced by Fabric metadata (`assets/argon/icon.png`)
+Argon's latest JFR capture showed two concrete leads, so this build adds diagnostic-only instrumentation for:
 
-Chunk-build telemetry is diagnostic, not an optimization: queue wait measures time until a task is returned by the native queue; compile duration measures `CompileTask.doTask`; upload duration measures CPU wall time inside `uploadTerrainBuffersToGpu`, not GPU completion. These stages don't capture server chunk generation or all neighbor/light gating. Native queue metrics observe the existing queue without changing scheduling or task order. They count queue operations and record depth after additions/polls; they do not count GPU work or prove a performance gain. Integrated tick-work times can help determine whether single-player server processing itself is taking too long. They don't measure remote multiplayer server performance, scheduling delay, or save time during shutdown.
+- `GuiRenderState.hasIntersection`: total call and intersecting-call counts, candidate-list sizes, and rolling CPU wall time.
+- `NoiseBasedChunkGenerator.doFill`: completed fill count, cumulative time, recent average/P50/P95/max, all-time maximum, and worker-thread call counts.
 
-Queue cleanup is disabled by default with `chunks.cancelled-task-cleanup.enabled=false`. It does not replace vanilla chunk scheduling or its distance ordering. Its runtime behavior and performance need to be tested in-game; the new scan-cost metrics help quantify the extra work if you opt in. No FPS improvement is claimed.
+These probes do **not** change GUI intersections, world-generation math, chunk scheduling, rendering, or game state. Their config switches default to false. They collect data only when local telemetry is also enabled.
 
-World-render samples are intervals between world-render callbacks, not GPU timestamps or a guaranteed FPS counter. A green CI build proves compilation and unit tests, not successful in-game startup or performance gains.
+## Enable the probes
 
-See [docs/IN_GAME_TEST_PLAN.md](docs/IN_GAME_TEST_PLAN.md).
+Close Minecraft and edit `config/argon.properties`:
+
+```properties
+telemetry.enabled=true
+performance.gui-intersection.enabled=true
+chunks.generation-profiling.enabled=true
+chunks.cancelled-task-cleanup.enabled=false
+renderer.experimental.enabled=false
+```
+
+Restart into a disposable world. Travel through newly generated terrain for a few minutes, ideally including the village where you previously saw severe tick spikes, then run `/argon status`. The GUI and noise-fill metrics have independent counts and timing windows, so one can be busy while the other is idle.
+
+For a cleaner isolation run, first test newly generated terrain with both probes enabled; then disable one profiling setting and restart to observe the remaining path with less instrumentation overhead. These are CPU wall-time diagnostics, not direct measurements of full chunk-ready latency or village AI alone.
+
+## Important limits
+
+- `NoiseBasedChunkGenerator.doFill` is a central terrain-density/fill stage, not all chunk generation, decoration, lighting, biome work, disk I/O, or queue waiting.
+- The GUI candidate-list size is the size of the supplied list, not the exact number of list entries the vanilla loop visits before returning.
+- A probe being expensive does not by itself prove that replacing or caching it is safe. Preserve vanilla's output semantics and confirm improvements with repeatable A/B testing.
+- The experimental renderer remains unavailable; this build does not replace the renderer or claim performance gains.
+- A successful CI build proves compilation and unit tests, not an in-game startup or performance result.
