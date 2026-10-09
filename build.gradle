@@ -113,9 +113,13 @@ tasks.register("verifyArgonMixinConfiguration") {
         }
         if (!queueMixin.contains("@Mixin(SectionTaskDynamicQueue.class)")
                 || !queueMixin.contains('@Inject(method = "add", at = @At("HEAD"))')
+                || !queueMixin.contains('@Inject(method = "add", at = @At("TAIL"))')
+                || !queueMixin.contains('@Inject(method = "poll", at = @At("RETURN"))')
+                || !queueMixin.contains('@Inject(method = "clear", at = @At("HEAD"))')
+                || !queueMixin.contains('@Inject(method = "clear", at = @At("TAIL"))')
                 || !queueMixin.contains("List<SectionTask>")) {
             throw new GradleException(
-                    "Native chunk queue Mixin target or injection point changed; review before packaging.")
+                    "Native chunk queue Mixin target or instrumentation hook changed; review before packaging.")
         }
 
         logger.lifecycle("Argon client Mixin metadata and Minecraft ${project.minecraft_version} target declarations verified.")
