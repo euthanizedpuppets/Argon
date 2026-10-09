@@ -33,7 +33,7 @@ First verify the new native queue counters appear and change while moving around
 
 ## Test B — opt-in queue cleanup
 
-Only after Test A is stable, close Minecraft and back up the generated config. Change just this setting:
+For the most isolated test, run Test A first and confirm the new queue metrics work with cleanup disabled. Since the previous 0.1.0 default-settings run already passed in your environment, you can proceed directly to this cleanup test in a disposable world; if anything fails, repeat once with cleanup disabled to isolate the cause. Close Minecraft and back up the generated config. Change just this setting:
 
 ```properties
 chunks.cancelled-task-cleanup.enabled=true
