@@ -1,6 +1,8 @@
-# Argon 0.1.2 Architecture — Minecraft 26.2 test branch
+# Argon 0.1.3 Architecture — Minecraft 26.2 test branch
 
 ## Goals
+
+The Fabric mod descriptor points to the checked-in icon resource at `assets/argon/icon.png`; the build fails if that declared asset is missing.
 
 This branch targets Minecraft Java Edition 26.2 on Fabric. It is a separate compatibility/testing lane from the 26.3 development branch. Optimize measured bottlenecks while preserving gameplay correctness and isolating experimental changes.
 
