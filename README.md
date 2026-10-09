@@ -10,10 +10,11 @@ Compilation and tests run in GitHub Actions so contributors do not need to compi
 
 ## Current scope
 
-- Fabric client bootstrap
-- Conservative feature flags
-- GitHub Actions compilation and artifact upload
-- Architecture and benchmarking documentation
+- Fabric client bootstrap and safe configuration loading
+- `/argon status` client-side diagnostic command
+- Conservative feature flags that do not mark placeholder optimizations active
+- Bounded chunk-work queue and rolling frame-time statistics (primitives only; not yet wired into Minecraft)
+- GitHub Actions compilation, tests, and artifact upload
 
 Chunk scheduling changes, memory pools, adaptive budgets, and a replacement renderer are not implemented yet. They will be added only after a baseline is measurable.
 
