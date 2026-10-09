@@ -1,4 +1,4 @@
-# Argon 0.1.3 Architecture — Minecraft 26.2 test branch
+# Argon 0.2.0 Renderer Prototype — Minecraft 26.2
 
 ## Goals
 
@@ -80,3 +80,10 @@ Target Minecraft 26.2, Fabric Loader 0.19.5, Fabric API 0.161.0+26.2, Java 25, a
 ## Performance
 
 Record baseline results before optimization patches. Keep changes only when repeatable tests show a measurable benefit without unacceptable visual, stability, or gameplay regressions.
+
+
+## Renderer observer prototype
+
+The experiment/renderer-prototype branch adds an opt-in observer at ChunkSectionsToRender.renderGroup. It measures the CPU wall time for vanilla's prepared terrain draw groups (opaque and translucent) and counts groups/draw entries carried by the frame's existing drawGroupsPerLayer data. The observer is only active when telemetry.enabled and renderer.experimental.enabled are both true.
+
+This branch deliberately does not cancel or replace vanilla terrain draws. It does not create an alternate render pass or GPU buffer, so no renderer speedup is expected. Keep EXPERIMENTAL_RENDERER unavailable until an independently implemented submission path exists; TERRAIN_RENDER_OBSERVER indicates only that the measurement hook is available. Use these numbers to decide whether CPU submission work is large enough to justify implementing custom GPU submission with Blaze3D while preserving OpenGL/Vulkan compatibility.
