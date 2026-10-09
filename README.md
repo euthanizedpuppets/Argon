@@ -1,38 +1,36 @@
-# Argon — Minecraft 26.2 test branch
+# Argon — Minecraft 26.2 renderer prototype
 
-This branch targets Minecraft Java Edition **26.2** on Fabric so the client can be tested with the graphics backend options available to this game version. It is intentionally separate from the 26.3 development branch.
+This experimental branch is isolated from support/minecraft-26.2, dev/argon-core, and main. It is a renderer-observer prototype, not yet a replacement terrain renderer.
 
 ## Cloud build
 
-GitHub Actions uses Java 25 and Gradle 9.6.0. A successful run uploads a single runtime JAR named `argon-mc26.2-0.1.3.jar`. Do not use the source JAR from other builds.
+GitHub Actions uses Java 25 and Gradle 9.6.0. A successful run uploads a single runtime JAR named argon-mc26.2-0.2.0-renderer-prototype.jar.
 
-## Install requirements
+## What this build does
+
+- Keeps Minecraft's terrain GPU submissions, chunk mesh compiler, textures, render pipelines, and GPU buffer lifecycle unchanged.
+- Adds an opt-in observer around ChunkSectionsToRender.renderGroup.
+- Records opaque and translucent terrain-group CPU wall time, P50/P95/max, plus observed native draw groups and draw entries.
+- Exposes results via /argon status so current terrain-draw cost can be measured before writing a replacement backend.
+- Keeps the actual experimental renderer feature marked UNAVAILABLE until Argon can submit terrain independently.
+
+This is intentionally a no-behavior-change instrumentation milestone. It does not claim FPS gains and does not yet provide a custom drawing algorithm. The next implementation stage can use this data to choose between a custom render-pass/submission implementation and a less invasive optimization.
+
+## Enable the observer
+
+Use a separate Minecraft 26.2 Fabric instance and a disposable world. Set these properties in config/argon.properties, close and restart the game:
+
+    telemetry.enabled=true
+    renderer.experimental.enabled=true
+    chunks.cancelled-task-cleanup.enabled=false
+
+Then enter the world, travel around for a couple of minutes, and run /argon status. The observer adds CPU work, so final performance comparisons should use a separate run with telemetry.enabled=false. Do not compare the observer-enabled run directly against an uninstrumented run for FPS.
+
+## Compatibility
 
 - Minecraft Java Edition 26.2
+- Fabric Loader 0.19.5+
+- Fabric API 0.161.0+26.2
 - Java 25
-- Fabric Loader 0.19.5 or newer
-- Fabric API 0.161.0+26.2 or newer for this game version
 
-Use a separate Fabric instance for testing. Back up worlds before testing any optimization mod.
-
-## Current scope
-
-- Safe config loading and the `/argon status` diagnostic command
-- World-render-pass interval samples through Fabric `LevelRenderEvents.END_MAIN`, disabled by `telemetry.enabled=false`
-- Integrated-server tick-work min/average/max/P50/P95 samples in single-player worlds
-- Min/average/max/P50/P95 render interval summaries
-- Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue
-- Stable linear compaction when pruning cancelled tasks from the native random-access queue
-- Optional-cleanup scan counts, entries inspected/pruned, and average/maximum scan-cost diagnostics
-- Native section-task queue add/poll/clear counters plus current and peak queue depth, collected only while local telemetry is enabled
-- Native section-task queue waiting time, section mesh compile duration, and CPU wall time spent inside terrain-buffer upload passes, collected only while local telemetry is enabled
-- Unit tests and a Gradle Mixin metadata/target declaration check
-- Bundled Argon mod icon referenced by Fabric metadata (`assets/argon/icon.png`)
-
-Chunk-build telemetry is diagnostic, not an optimization: queue wait measures time until a task is returned by the native queue; compile duration measures `CompileTask.doTask`; upload duration measures CPU wall time inside `uploadTerrainBuffersToGpu`, not GPU completion. These stages don't capture server chunk generation or all neighbor/light gating. Native queue metrics observe the existing queue without changing scheduling or task order. They count queue operations and record depth after additions/polls; they do not count GPU work or prove a performance gain. Integrated tick-work times can help determine whether single-player server processing itself is taking too long. They don't measure remote multiplayer server performance, scheduling delay, or save time during shutdown.
-
-Queue cleanup is disabled by default with `chunks.cancelled-task-cleanup.enabled=false`. It does not replace vanilla chunk scheduling or its distance ordering. Its runtime behavior and performance need to be tested in-game; the new scan-cost metrics help quantify the extra work if you opt in. No FPS improvement is claimed.
-
-World-render samples are intervals between world-render callbacks, not GPU timestamps or a guaranteed FPS counter. A green CI build proves compilation and unit tests, not successful in-game startup or performance gains.
-
-See [docs/IN_GAME_TEST_PLAN.md](docs/IN_GAME_TEST_PLAN.md).
+Keep backups and test only in a disposable world. A passing cloud build means code compiles and tests pass; it does not prove successful in-game startup, renderer correctness, or performance improvement.
