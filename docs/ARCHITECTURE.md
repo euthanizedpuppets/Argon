@@ -1,4 +1,4 @@
-# Argon 0.1.3 Architecture — Minecraft 26.2 test branch
+# Argon 0.1.4 Architecture — Minecraft 26.2 test branch
 
 ## Goals
 
@@ -80,3 +80,14 @@ Target Minecraft 26.2, Fabric Loader 0.19.5, Fabric API 0.161.0+26.2, Java 25, a
 ## Performance
 
 Record baseline results before optimization patches. Keep changes only when repeatable tests show a measurable benefit without unacceptable visual, stability, or gameplay regressions.
+
+
+## Opt-in GUI intersection profiler
+
+When both telemetry and performance.gui-intersection.enabled are true, a required client Mixin records CPU wall time around vanilla GuiRenderState.hasIntersection. It tracks the supplied candidate-list size, total calls, positive intersection results, rolling timing percentiles, and the maximum list size. The profiler does not change the method return value or its iteration logic. Candidate-list size is not an exact iteration count. Both data collection switches are false by default except telemetry, so this probe adds no per-call timing overhead unless explicitly enabled.
+
+## Opt-in terrain noise-fill profiler
+
+When both telemetry and chunks.generation-profiling.enabled are true, a required Mixin records CPU wall time around NoiseBasedChunkGenerator.doFill, a central terrain density/fill stage. Thread-local start stacks make concurrent worker invocations independent. Metrics report total calls, cumulative observed duration, all-time maximum, a bounded rolling timing window, and worker call counts. This is not total chunk-generation latency: upstream biome selection, terrain status orchestration, decoration, lighting, I/O, and queue waits remain outside the timed section.
+
+These probes are diagnostic-only. Do not change GUI search semantics or world-generation math until a follow-up patch is supported by repeatable measurements.
