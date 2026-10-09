@@ -36,6 +36,12 @@ When the opt-in `chunks.cancelled-task-cleanup.enabled=true` setting is enabled,
 
 The cleanup pass uses stable linear compaction for the queue's random-access task list, so a large sparse cancellation set does not trigger repeated array shifts. The feature remains a queue-hygiene experiment, not a proven FPS optimization. It is disabled by default and should not be recommended for normal play until tested in a real 26.2 client. When telemetry is enabled, diagnostics record scans, entries inspected/pruned, and average/maximum scan cost to reveal whether the extra work is actually small enough to justify itself.
 
+## Native chunk queue pressure diagnostics
+
+When local telemetry is enabled, the queue Mixin records successful task additions, poll calls, non-null tasks returned, queue clears, entries removed by clear, and current/peak queue depth. Samples are session-local and are reported by `/argon status`. The depth is captured after additions and polls, and after a clear it is recorded as zero. These counters help establish whether the queue accumulates work during a reproducible traversal; they do not measure time spent compiling a mesh or establish an FPS improvement.
+
+The hooks do not change the native queue's distance selection, recompile quota, cancellation policy, or worker scheduling. Telemetry can be disabled using `telemetry.enabled=false`; in that mode these counters are not collected. Cancelled-task pruning remains a separate opt-in experiment.
+
 ## Graphics backend considerations
 
 This compatibility branch is intended for a 26.2 client where the graphics backend choices are available for the user's system. Argon does not force a backend or issue raw OpenGL calls. Use the game's own graphics/backend setting, and verify that the selected backend actually starts on the installed driver stack.
