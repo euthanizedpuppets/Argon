@@ -1,4 +1,4 @@
-# Argon 0.1 Architecture — Minecraft 26.2 test branch
+# Argon 0.1.1 Architecture — Minecraft 26.2 test branch
 
 ## Goals
 
