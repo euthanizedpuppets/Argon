@@ -15,8 +15,9 @@
 - Stable linear compaction for random-access lists in the cancellation-pruning helper;
 - Optional-cleanup metrics for scan counts, entries inspected/pruned, and average/maximum scan duration;
 - Native section-task queue add/poll/successful-poll/clear counters and current/peak depth, guarded by `telemetry.enabled`;
+- Rolling measurements for native queue wait, section mesh compile duration, and CPU wall time in terrain-buffer upload passes;
 - Guarded feature flags, `/argon status`, unit tests and a Gradle Mixin metadata/target declaration check;
-- A cloud build that uploads only `argon-mc26.2-0.1.1.jar`.
+- A cloud build that uploads only `argon-mc26.2-0.1.2.jar`.
 
 The user reports that the default-settings Minecraft 26.2 client starts, `/argon status` works, and shutdown completes cleanly on the previous 0.1.0 candidate. Native queue cleanup remains disabled by default; its opt-in runtime behavior and performance have not yet been verified in-game. No FPS uplift is claimed.
 
@@ -29,5 +30,6 @@ Render intervals are elapsed times between world-render callbacks, not GPU times
 3. Mixin resource metadata and target declarations pass the Gradle verification task.
 4. The game starts with cleanup disabled and `/argon status` works.
 5. Integrated tick-work diagnostics show samples in a single-player world.
-6. Cleanup scan-cost metrics appear only after the user opts in to cleanup and telemetry is enabled.
-7. Do not claim FPS gains until repeatable, controlled comparisons support them.
+6. Chunk pipeline timings are diagnostic-only and never alter vanilla scheduling.
+7. Cleanup scan-cost metrics appear only after the user opts in to cleanup and telemetry is enabled.
+8. Do not claim FPS gains until repeatable, controlled comparisons support them.
