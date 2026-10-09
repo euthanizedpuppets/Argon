@@ -53,6 +53,33 @@ final class BoundedPriorityTaskQueueTest {
     }
 
     @Test
+    void repeatedPriorityUpgradesKeepStaleEntriesBounded() {
+        BoundedPriorityTaskQueue<String, String> queue = new BoundedPriorityTaskQueue<>(1);
+        queue.offer("chunk", "v0", 0);
+
+        for (int i = 1; i <= 10_000; i++) {
+            assertEquals(BoundedPriorityTaskQueue.OfferResult.PRIORITY_RAISED,
+                    queue.offer("chunk", "v" + i, i));
+            assertTrue(queue.retainedEntryCount() <= 16);
+        }
+
+        assertEquals("v10000", queue.poll().orElseThrow().value());
+        assertTrue(queue.isEmpty());
+    }
+
+    @Test
+    void repeatedCancellationDoesNotAccumulateHeapEntries() {
+        BoundedPriorityTaskQueue<String, String> queue = new BoundedPriorityTaskQueue<>(1);
+        for (int i = 0; i < 1_000; i++) {
+            assertEquals(BoundedPriorityTaskQueue.OfferResult.ADDED,
+                    queue.offer("chunk", "task" + i, i));
+            assertTrue(queue.cancel("chunk"));
+            assertTrue(queue.retainedEntryCount() <= 16);
+        }
+        assertTrue(queue.isEmpty());
+    }
+
+    @Test
     void cancelAndClearRemovePendingWork() {
         BoundedPriorityTaskQueue<String, String> queue = new BoundedPriorityTaskQueue<>(3);
         queue.offer("a", "a", 1);
