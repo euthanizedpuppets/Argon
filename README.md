@@ -23,11 +23,12 @@ Use a separate Fabric instance for testing. Back up worlds before testing any op
 - Min/average/max/P50/P95 render interval summaries
 - Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue
 - Stable linear compaction when pruning cancelled tasks from the native random-access queue
+- Optional-cleanup scan counts, entries inspected/pruned, and average/maximum scan-cost diagnostics
 - Unit tests and a Gradle Mixin metadata/target declaration check
 
-Integrated tick-work times can help determine whether single-player server processing itself is taking too long. They don't measure remote multiplayer server performance or save time during shutdown.
+Integrated tick-work times can help determine whether single-player server processing itself is taking too long. They don't measure remote multiplayer server performance, scheduling delay, or save time during shutdown.
 
-Queue cleanup is disabled by default with `chunks.cancelled-task-cleanup.enabled=false`. It does not replace vanilla chunk scheduling or its distance ordering. Its runtime behavior and performance need to be tested in-game; no FPS improvement is claimed.
+Queue cleanup is disabled by default with `chunks.cancelled-task-cleanup.enabled=false`. It does not replace vanilla chunk scheduling or its distance ordering. Its runtime behavior and performance need to be tested in-game; the new scan-cost metrics help quantify the extra work if you opt in. No FPS improvement is claimed.
 
 World-render samples are intervals between world-render callbacks, not GPU timestamps or a guaranteed FPS counter. A green CI build proves compilation and unit tests, not successful in-game startup or performance gains.
 

@@ -1,6 +1,7 @@
 package dev.argon;
 
 import dev.argon.chunks.BoundedPriorityTaskQueue;
+import dev.argon.chunks.ChunkCleanupMetrics;
 import dev.argon.config.ArgonConfig;
 import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
@@ -15,7 +16,6 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,7 +28,7 @@ public final class ArgonClient implements ClientModInitializer {
     public static final String MOD_ID = "argon";
     public static final Logger LOGGER = Logger.getLogger(MOD_ID);
 
-    private static final AtomicLong CANCELLED_CHUNK_TASKS_PRUNED = new AtomicLong();
+    private static final ChunkCleanupMetrics CHUNK_CLEANUP_METRICS = new ChunkCleanupMetrics();
 
     private static ArgonConfig config = ArgonConfig.defaults();
     private static FrameTimeTracker frameTimes = new FrameTimeTracker(
@@ -53,6 +53,16 @@ public final class ArgonClient implements ClientModInitializer {
         return integratedServerTickTimes;
     }
 
+    public static ChunkCleanupMetrics chunkCleanupMetrics() {
+        return CHUNK_CLEANUP_METRICS;
+    }
+
+    public static void recordChunkCleanupScan(int inspected, int removed, long durationNanos) {
+        if (config.telemetryEnabled()) {
+            CHUNK_CLEANUP_METRICS.recordScan(inspected, removed, Math.max(0L, durationNanos));
+        }
+    }
+
     /**
      * Exposes the bounded scheduling primitive for future integration.
      * This queue is not the native Minecraft chunk task queue.
@@ -61,20 +71,10 @@ public final class ArgonClient implements ClientModInitializer {
         return chunkQueue;
     }
 
-    public static void recordCancelledChunkTasksPruned(int count) {
-        if (config.telemetryEnabled() && count > 0) {
-            CANCELLED_CHUNK_TASKS_PRUNED.addAndGet(count);
-        }
-    }
-
-    public static long cancelledChunkTasksPruned() {
-        return CANCELLED_CHUNK_TASKS_PRUNED.get();
-    }
-
     @Override
     public void onInitializeClient() {
         FeatureFlags.initializeDefaults();
-        CANCELLED_CHUNK_TASKS_PRUNED.set(0L);
+        CHUNK_CLEANUP_METRICS.reset();
 
         Path configPath = FabricLoader.getInstance()
                 .getConfigDir()

@@ -26,7 +26,7 @@ The monitor runs only when `telemetry.enabled=true`. Its summary computes min, a
 
 When local metrics are enabled, Argon subscribes to Fabric's `ServerTickEvents.START_SERVER_TICK` and `END_SERVER_TICK` callbacks. In this client-only mod those samples describe the single-player integrated server, not a remote multiplayer server. The monitor records the elapsed duration between start/end callbacks, keeps long ticks instead of hiding them, and reports min/average/max/P50/P95 in `/argon status`.
 
-These values measure time spent between the callbacks. They are not the wall-clock interval between server ticks and do not include shutdown save work after ticking has stopped. They are intended to help tell whether slow gameplay coincides with long integrated tick processing; they do not by themselves identify the code responsible.
+These values measure time spent between the callbacks. They are not the wall-clock interval between scheduled ticks and do not include shutdown save work after ticking has stopped. They are intended to help tell whether slow gameplay coincides with long integrated tick processing; they do not by themselves identify the code responsible.
 
 ## Cancelled chunk-task cleanup
 
@@ -34,7 +34,7 @@ Minecraft's `SectionTaskDynamicQueue` already removes cancelled tasks while poll
 
 When the opt-in `chunks.cancelled-task-cleanup.enabled=true` setting is enabled, a client-only Mixin checks the native queue before new tasks are appended. If at least 32 tasks are queued, it runs a cleanup pass every 16 additions, removing entries whose vanilla cancellation flag is already set. Removing entries preserves the order of survivors. The original queue methods continue to own worker scheduling, task execution, and buffer lifecycle.
 
-The cleanup pass uses stable linear compaction for the queue's random-access task list, so a large sparse cancellation set does not trigger repeated array shifts. This is still an experimental queue-hygiene hook, not a proven FPS optimization. It is disabled by default and must be tested in an actual 26.2 client before being recommended for normal play. The diagnostic count records how many cancelled entries were removed early and is not collected when local metrics are disabled.
+The cleanup pass uses stable linear compaction for the queue's random-access task list, so a large sparse cancellation set does not trigger repeated array shifts. The feature remains a queue-hygiene experiment, not a proven FPS optimization. It is disabled by default and should not be recommended for normal play until tested in a real 26.2 client. When telemetry is enabled, diagnostics record scans, entries inspected/pruned, and average/maximum scan cost to reveal whether the extra work is actually small enough to justify itself.
 
 ## Graphics backend considerations
 

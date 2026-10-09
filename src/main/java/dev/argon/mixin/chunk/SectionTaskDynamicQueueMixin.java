@@ -47,10 +47,17 @@ public abstract class SectionTaskDynamicQueueMixin {
         }
         this.argon$additionsSinceScan = 0;
 
+        boolean measure = ArgonClient.config().telemetryEnabled();
+        long startedNanos = measure ? System.nanoTime() : 0L;
+        int inspected = this.tasks.size();
         int removed = CancelledChunkTaskPruner.pruneCancelled(
                 this.tasks,
                 task -> ((SectionTaskCancellationAccessor) (Object) task)
                         .argon$getIsCancelled().get());
-        ArgonClient.recordCancelledChunkTasksPruned(removed);
+
+        if (measure) {
+            ArgonClient.recordChunkCleanupScan(
+                    inspected, removed, System.nanoTime() - startedNanos);
+        }
     }
 }

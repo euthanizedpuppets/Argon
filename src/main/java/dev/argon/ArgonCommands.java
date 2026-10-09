@@ -1,5 +1,6 @@
 package dev.argon;
 
+import dev.argon.chunks.ChunkCleanupMetrics;
 import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
 import dev.argon.performance.FrameTimeTracker;
@@ -28,6 +29,7 @@ public final class ArgonCommands {
         FrameTimeTracker.Summary render = renderTracker.summary();
         FrameTimeTracker serverTracker = ArgonClient.integratedServerTickTimes();
         FrameTimeTracker.Summary server = serverTracker.summary();
+        ChunkCleanupMetrics.Snapshot cleanup = ArgonClient.chunkCleanupMetrics().snapshot();
 
         StringBuilder report = new StringBuilder()
                 .append("Argon diagnostics")
@@ -41,10 +43,20 @@ public final class ArgonCommands {
                 .append(ArgonClient.config().cancelledChunkTaskCleanupEnabled());
 
         if (ArgonClient.config().telemetryEnabled()) {
-            report.append("\nNative cancelled tasks pruned: ")
-                    .append(ArgonClient.cancelledChunkTasksPruned());
+            report.append("\nCleanup scans / inspected / pruned: ")
+                    .append(cleanup.scanCount())
+                    .append(" / ")
+                    .append(cleanup.entriesInspected())
+                    .append(" / ")
+                    .append(cleanup.entriesPruned());
+            if (cleanup.scanCount() > 0) {
+                report.append("\nCleanup avg/max scan cost: ")
+                        .append(formatMillis(cleanup.averageDurationNanos()))
+                        .append(" / ")
+                        .append(formatMillis(cleanup.maximumDurationNanos()));
+            }
         } else {
-            report.append("\nNative cancelled-task metrics: not collected");
+            report.append("\nCleanup scan metrics: not collected");
         }
 
         report.append("\nArgon utility queue: ")
@@ -103,8 +115,8 @@ public final class ArgonCommands {
         }
 
         report.append("\nWorld-pass intervals are not GPU timings or a guaranteed FPS measurement.");
-        report.append("\nIntegrated tick-work measures tick callbacks, not shutdown saving or scheduler delay.");
-        report.append("\nNative queue cleanup removes cancelled entries only; vanilla task ordering is retained.");
+        report.append("\nIntegrated tick-work excludes wall-clock scheduling delay and shutdown saving.");
+        report.append("\nNative queue cleanup does not replace vanilla task ordering.");
         return report.toString();
     }
 
