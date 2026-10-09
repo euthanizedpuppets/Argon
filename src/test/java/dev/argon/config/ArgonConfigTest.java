@@ -1,0 +1,66 @@
+package dev.argon.config;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+final class ArgonConfigTest {
+    @TempDir
+    Path temporaryDirectory;
+
+    @Test
+    void defaultsKeepExperimentalFeaturesDisabled() {
+        ArgonConfig config = ArgonConfig.defaults();
+
+        assertTrue(config.telemetryEnabled());
+        assertFalse(config.chunkSchedulerEnabled());
+        assertFalse(config.experimentalRendererEnabled());
+        assertEquals(256, config.maxQueuedChunkTasks());
+        assertEquals(240, config.frameSampleWindow());
+    }
+
+    @Test
+    void saveAndLoadRoundTrip() throws IOException {
+        Path file = temporaryDirectory.resolve("nested/argon.properties");
+        ArgonConfig expected = new ArgonConfig(true, true, false, 512, 300);
+
+        expected.save(file);
+        ArgonConfig actual = ArgonConfig.load(file);
+
+        assertTrue(actual.telemetryEnabled());
+        assertTrue(actual.chunkSchedulerEnabled());
+        assertFalse(actual.experimentalRendererEnabled());
+        assertEquals(512, actual.maxQueuedChunkTasks());
+        assertEquals(300, actual.frameSampleWindow());
+    }
+
+    @Test
+    void invalidValuesFallBackAndNumbersAreClamped() throws IOException {
+        Path file = temporaryDirectory.resolve("argon.properties");
+        Files.writeString(file, """
+                telemetry.enabled=maybe
+                chunks.scheduler.enabled=true
+                renderer.experimental.enabled=false
+                chunks.queue.capacity=999999
+                performance.frame-window=not-a-number
+                """);
+
+        ArgonConfig config = ArgonConfig.load(file);
+
+        assertTrue(config.telemetryEnabled());
+        assertTrue(config.chunkSchedulerEnabled());
+        assertEquals(ArgonConfig.MAX_QUEUE_CAPACITY, config.maxQueuedChunkTasks());
+        assertEquals(ArgonConfig.defaults().frameSampleWindow(), config.frameSampleWindow());
+    }
+
+    @Test
+    void missingFileReturnsDefaults() throws IOException {
+        ArgonConfig config = ArgonConfig.load(temporaryDirectory.resolve("missing.properties"));
+        assertFalse(config.experimentalRendererEnabled());
+    }
+}
