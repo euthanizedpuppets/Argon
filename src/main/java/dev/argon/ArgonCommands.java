@@ -6,6 +6,8 @@ import dev.argon.chunks.NativeChunkQueueMetrics;
 import dev.argon.core.ArgonFeature;
 import dev.argon.core.FeatureFlags;
 import dev.argon.performance.FrameTimeTracker;
+import dev.argon.performance.GuiIntersectionMetrics;
+import dev.argon.performance.ChunkGenerationMetrics;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.minecraft.network.chat.Component;
@@ -178,6 +180,63 @@ public final class ArgonCommands {
                     .append(FeatureFlags.status(feature));
         }
 
+        if (!ArgonClient.config().telemetryEnabled()) {
+            report.append("\nGUI intersection profiling: not collected (local telemetry disabled)");
+            report.append("\nChunk generation profiling: not collected (local telemetry disabled)");
+        } else if (!ArgonClient.config().guiIntersectionProfilingEnabled()) {
+            report.append("\nGUI intersection profiling: disabled");
+        } else {
+            GuiIntersectionMetrics.Snapshot gui = ArgonClient.guiIntersectionMetrics().snapshot();
+            report.append("\nGUI intersection calls / intersecting calls: ")
+                    .append(gui.totalCalls()).append(" / ").append(gui.intersectingCalls())
+                    .append("\nGUI candidate list total entries / max list size: ")
+                    .append(gui.totalCandidateEntries()).append(" / ")
+                    .append(gui.maximumCandidateListSize());
+
+            FrameTimeTracker.Summary listSize = gui.candidateListSizeWindow();
+            if (listSize.sampleCount() > 0) {
+                report.append("\nGUI candidate list size recent avg/P50/P95/max: ")
+                        .append(formatCount(listSize.averageNanos() - 1.0)).append(" / ")
+                        .append(Math.max(0L, listSize.p50Nanos() - 1L)).append(" / ")
+                        .append(Math.max(0L, listSize.p95Nanos() - 1L)).append(" / ")
+                        .append(Math.max(0L, listSize.maximumNanos() - 1L));
+            }
+            FrameTimeTracker.Summary guiTime = gui.durationWindow();
+            if (guiTime.sampleCount() > 0) {
+                report.append("\nGUI hasIntersection CPU time recent avg/P50/P95/max: ")
+                        .append(formatMillis(guiTime.averageNanos())).append(" / ")
+                        .append(formatMillis(guiTime.p50Nanos())).append(" / ")
+                        .append(formatMillis(guiTime.p95Nanos())).append(" / ")
+                        .append(formatMillis(guiTime.maximumNanos()));
+            } else {
+                report.append("\nGUI hasIntersection profile: waiting for samples");
+            }
+            report.append("\nGUI list size is candidate count, not exact loop iterations.");
+        }
+
+        if (!ArgonClient.config().telemetryEnabled()) {
+            // Already explained above; collection is gated by local telemetry.
+        } else if (!ArgonClient.config().chunkGenerationProfilingEnabled()) {
+            report.append("\nChunk generation profiling: disabled");
+        } else {
+            ChunkGenerationMetrics.Snapshot generation =
+                    ArgonClient.chunkGenerationMetrics().snapshot();
+            report.append("\nNoise terrain fills completed / cumulative CPU wall time: ")
+                    .append(generation.completedFills()).append(" / ")
+                    .append(formatMillis(generation.cumulativeDurationNanos()))
+                    .append("\nNoise terrain fill recent avg/P50/P95/max: ")
+                    .append(formatMillis(generation.recentDurations().averageNanos())).append(" / ")
+                    .append(formatMillis(generation.recentDurations().p50Nanos())).append(" / ")
+                    .append(formatMillis(generation.recentDurations().p95Nanos())).append(" / ")
+                    .append(formatMillis(generation.recentDurations().maximumNanos()))
+                    .append("\nNoise fill maximum observed: ")
+                    .append(formatMillis(generation.maximumDurationNanos()))
+                    .append("\nNoise fills by worker (session totals): ")
+                    .append(generation.topWorkerCalls());
+        }
+
+        report.append("\nGUI and noise-fill samples are opt-in CPU wall-time diagnostics.");
+        report.append("\nNoise fill is one terrain-generation stage, not total chunk-ready latency.");
         report.append("\nWorld-pass intervals are not GPU timings or a guaranteed FPS measurement.");
         report.append("\nIntegrated tick-work excludes wall-clock scheduling delay and shutdown saving.");
         report.append("\nNative queue cleanup does not replace vanilla task ordering.");
@@ -187,5 +246,9 @@ public final class ArgonCommands {
 
     private static String formatMillis(double nanos) {
         return String.format(Locale.ROOT, "%.2f ms", nanos / 1_000_000.0);
+    }
+
+    private static String formatCount(double value) {
+        return String.format(Locale.ROOT, "%.1f", Math.max(0.0, value));
     }
 }
