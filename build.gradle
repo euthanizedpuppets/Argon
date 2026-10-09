@@ -109,7 +109,7 @@ tasks.register("verifyArgonMixinConfiguration") {
         if (!accessor.contains('@Mixin(targets = "net.minecraft.client.renderer.chunk.SectionRenderDispatcher$RenderSection$SectionTask")')
                 || !accessor.contains('@Accessor("isCancelled")')) {
             throw new GradleException(
-                    "SectionTask cancellation accessor no longer matches the verified Minecraft 26.3 target.")
+                    "SectionTask cancellation accessor no longer matches the selected Minecraft ${project.minecraft_version} target.")
         }
         if (!queueMixin.contains("@Mixin(SectionTaskDynamicQueue.class)")
                 || !queueMixin.contains('@Inject(method = "add", at = @At("HEAD"))')
@@ -118,7 +118,7 @@ tasks.register("verifyArgonMixinConfiguration") {
                     "Native chunk queue Mixin target or injection point changed; review before packaging.")
         }
 
-        logger.lifecycle("Argon client Mixin metadata and Minecraft 26.3 target declarations verified.")
+        logger.lifecycle("Argon client Mixin metadata and Minecraft ${project.minecraft_version} target declarations verified.")
     }
 }
 

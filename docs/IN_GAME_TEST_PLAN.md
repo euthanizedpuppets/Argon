@@ -1,17 +1,18 @@
-# Argon 0.1 — first in-game smoke test
+# Argon Minecraft 26.2 — first in-game smoke test
 
-This build is intended to verify startup compatibility and gather an initial baseline. It is not a performance-release claim.
+This branch is a 26.2 compatibility test candidate so it can be tried on the user's current graphics stack. It is not a performance-release claim.
 
 ## Before installing
 
-1. Use a separate Minecraft 26.3 Fabric instance with Java 25, Fabric Loader 0.19.5, and Fabric API 0.162.0+26.3.
+1. Use a separate Minecraft 26.2 Fabric instance with Java 25, Fabric Loader 0.19.5, and Fabric API 0.161.0+26.2.
 2. Back up any world you care about. Prefer a temporary test world for the first launch.
-3. Download the `argon-0.1.0` artifact from the latest successful Argon CI run. Use the JAR inside the downloaded artifact ZIP.
-4. Close Minecraft before adding the JAR to that instance's `mods` folder. Avoid mixing this first test with other optimization mods where possible.
+3. Open the successful CI run for the `support/minecraft-26.2` branch and download artifact `argon-mc26.2-0.1.0`.
+4. Extract the ZIP and place only `argon-mc26.2-0.1.0.jar` in that instance's `mods` directory. Close Minecraft before adding it.
+5. Start with no other performance mods where practical, so a crash or behavior change is easier to isolate.
 
 ## Test A — default settings
 
-Do not create or edit the config before the first run. Argon creates `config/argon.properties` with safe defaults:
+Do not create or edit the config before the first run. Argon creates `config/argon.properties` with safe defaults, including:
 
 ```properties
 telemetry.enabled=true
@@ -22,13 +23,13 @@ performance.frame-window=240
 chunks.cancelled-task-cleanup.enabled=false
 ```
 
-Launch Minecraft and check that it reaches the title screen and can enter a test world. In the world, run:
+Launch the game, reach the title screen, and enter a disposable world. Run:
 
 ```text
 /argon status
 ```
 
-Confirm the status command appears and the world-pass sample count grows while the world is rendering. The cancelled-task cleanup feature should show as disabled. The first launch also verifies that the required 26.3-specific Mixin can apply without a startup error.
+Confirm the world-pass sample count grows while the world is rendering and `CANCELLED_CHUNK_TASK_CLEANUP` reports `DISABLED`. Use the game's own graphics setting to test the backend your system supports; Argon does not force OpenGL or Vulkan.
 
 ## Test B — opt-in queue cleanup
 
@@ -38,12 +39,14 @@ Only after Test A is stable, close Minecraft and back up the generated config. C
 chunks.cancelled-task-cleanup.enabled=true
 ```
 
-Restart the client and check `/argon status` says `CANCELLED_CHUNK_TASK_CLEANUP: ACTIVE`. In a disposable test world, move quickly across chunk boundaries, rotate the camera through dense terrain, enter/leave the Nether if practical, and revisit areas that trigger chunk rebuilds. Watch for crashes, missing chunks, visual corruption, severe stutters, or console errors.
+Restart and confirm `/argon status` says `CANCELLED_CHUNK_TASK_CLEANUP: ACTIVE`. In a disposable world, move quickly across chunk boundaries, rotate the camera through dense terrain, and revisit areas likely to trigger chunk rebuilds. Watch for startup crashes, missing chunks, visual corruption, severe stutters, or console errors.
 
-If anything unusual occurs, close the game and set the option back to `false` before another launch. This setting is deliberately opt-in because the hook has passed CI but has not yet been validated in a real client.
+If anything unusual occurs, close the game and set the option back to `false` before another launch. This setting is opt-in because it has passed CI but has not yet been validated in a real 26.2 client.
 
 ## What to report back
 
-Please share whether each test reached the title screen and loaded a world; whether `/argon status` worked; any crash or Mixin error from `logs/latest.log`; and, for the opt-in test, whether you noticed a repeatable difference in chunk stutter. P50/P95 in the command are world-render-pass intervals, not GPU timings or a guaranteed FPS measurement. Try to compare the same view and movement route before interpreting a difference.
+Share whether the title screen and world loaded, whether `/argon status` worked, whether the selected graphics backend starts, and any crash or Mixin errors from `logs/latest.log`. For the cleanup test, describe repeatable changes in chunk stutter and any new log warnings.
 
-Do not test first on a valuable world or server you care about. If the client crashes, preserve `logs/latest.log` and any crash report before changing the configuration.
+The P50/P95 values measure intervals between world-render callbacks. They are not GPU timings or a guaranteed FPS measurement. Compare the same view and movement route before interpreting differences.
+
+Do not use a valuable world or server for the first test. If saving or exiting hangs, wait briefly, then capture `logs/latest.log` and any crash report before force-closing so we can diagnose it.

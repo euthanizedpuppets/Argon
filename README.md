@@ -1,28 +1,30 @@
-# Argon
+# Argon — Minecraft 26.2 test branch
 
-Argon is a Java-first performance optimization mod for Minecraft Java Edition 26.3 on Fabric.
+This branch targets Minecraft Java Edition **26.2** on Fabric so the client can be tested with the graphics backend options available to this game version. It is intentionally separate from the 26.3 development branch.
 
-The goal is to improve rendering overhead, chunk rebuild scheduling, memory allocation pressure, and frame pacing while preserving gameplay correctness. Experimental changes remain opt-in until correctness, performance, and compatibility are demonstrated.
+## Cloud build
 
-## Cloud builds
+GitHub Actions uses Java 25 and Gradle 9.6.0. A successful run uploads a single runtime JAR named `argon-mc26.2-0.1.0.jar`. Do not use the source JAR from other builds.
 
-Compilation and tests run in GitHub Actions so contributors do not need to compile Minecraft on low-end hardware. Open the Actions tab and download the JAR artifact from a successful Argon CI run. The workflow provisions JDK 25 and Gradle 9.6.0.
+## Install requirements
 
-CI runs unit tests and a resource verification task that checks the required target-version Mixin config is registered and its declared classes/targets remain present. This does not replace a real Minecraft launch test.
+- Minecraft Java Edition 26.2
+- Java 25
+- Fabric Loader 0.19.5 or newer
+- Fabric API 0.161.0+26.2 or newer for this game version
+
+Use a separate Fabric instance for testing. Back up worlds before testing any optimization mod.
 
 ## Current scope
 
-- Fabric client bootstrap and safe configuration loading
-- `/argon status` client-side diagnostic command
-- World-pass interval sampling from Minecraft 26.3's Fabric `LevelRenderEvents.END_MAIN` event, disabled by `telemetry.enabled=false`
-- Min/average/max/P50/P95 interval summaries from one rolling-window sort
+- Safe config loading and the `/argon status` diagnostic command
+- World-render-pass interval samples through Fabric `LevelRenderEvents.END_MAIN`, disabled by `telemetry.enabled=false`
+- Min/average/max/P50/P95 interval summaries
 - Opt-in cleanup of already-cancelled entries in Minecraft's native section-task queue
-- Conservative feature flags, bounded queue primitives, unit tests, and GitHub Actions artifact upload
+- Unit tests and a Gradle Mixin metadata/target declaration check
 
-Native queue cleanup is disabled by default through `chunks.cancelled-task-cleanup.enabled=false`. When enabled, it removes cancelled entries before new tasks are appended, periodically and only above a queue-size threshold. It does not replace vanilla's camera-distance prioritization, task quota, worker, or buffer lifecycle. Its compatibility and performance still require in-game validation; no FPS gain is claimed.
+Queue cleanup is disabled by default with `chunks.cancelled-task-cleanup.enabled=false`. It does not replace vanilla chunk scheduling or its distance ordering. Its runtime behavior and performance need to be tested in-game; no FPS improvement is claimed.
 
-World-pass intervals are a diagnostic estimate, not a GPU timestamp or guaranteed FPS measurement. A custom Vulkan renderer, wholesale replacement chunk scheduler, memory pools, and adaptive budgets are not implemented.
+These samples are world-render-pass intervals, not GPU timestamps or a guaranteed FPS counter. A green CI build proves compilation and unit tests, not successful in-game startup or performance gains.
 
-For the first in-game smoke test, see [docs/IN_GAME_TEST_PLAN.md](docs/IN_GAME_TEST_PLAN.md).
-
-A green build proves compilation and unit tests, not actual in-game compatibility or FPS gains. See docs/ARCHITECTURE.md and docs/PERFORMANCE_METHODOLOGY.md.
+See [docs/IN_GAME_TEST_PLAN.md](docs/IN_GAME_TEST_PLAN.md).

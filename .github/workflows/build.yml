@@ -1,4 +1,4 @@
-name: Argon CI
+name: Argon CI (Minecraft 26.2)
 
 on:
   push:
@@ -43,10 +43,10 @@ jobs:
       - name: Compile, test, and package
         run: gradle --no-daemon clean test build
 
-      - name: Upload Argon JAR
+      - name: Upload Argon Minecraft 26.2 JAR
         uses: actions/upload-artifact@v4
         with:
-          name: argon-0.1.0
-          path: build/libs/*.jar
+          name: argon-mc26.2-0.1.0
+          path: build/libs/argon-mc26.2-0.1.0.jar
           if-no-files-found: error
           retention-days: 14
